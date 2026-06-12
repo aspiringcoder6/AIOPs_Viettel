@@ -1,0 +1,61 @@
+generator client{
+    provider = "prisma-client-js"
+}
+enum EVENT_TYPE{
+    SERVICE_DOWN
+    LATENCY_SPIKE
+    ERROR_SPIKE
+    CPU_SPIKE
+    MEMORY_SPIKE
+    DISK_FULL
+    CONNECTION_FAILURE
+}
+model Service{
+    id UUID @id @default(uuid())
+    name String @unique
+    service_type String
+    environment String 
+    status String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+model ServiceDependencies{
+    service_id UUID @id @default(uuid())
+    dependency_id UUID @id @default(uuid())
+    service Service @relation(fields: [service_id], references: [id])
+    dependency Service @relation(fields: [dependency_id], references: [id])
+}
+model Events{
+    id UUID @id @default(uuid())
+    event_type EVENT_TYPE
+    service_id UUID
+    detected_at DateTime @default(now())
+    severity String
+    status String
+    metadata JSON
+    service Service @relation(fields: [service_id], references: [id])
+}
+model ContextBundle{
+    id UUID @id @default(uuid())
+    event_id UUID
+    start_time DateTime @default(now())
+    end_time DateTime?
+    affected_services JSON
+    summary String
+    createdAt DateTime @default(now())
+    event Events @relation(fields: [event_id], references: [id])
+}
+model Incident{
+    id UUID @id @default(uuid())
+    event_id UUID
+    context_bundle_id UUID
+    severity String
+    root_cause String
+    confidence FLOAT
+    t
+    status String
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    contextBundle ContextBundle @relation(fields: [context_bundle_id], references: [id])
+    event Events @relation(fields: [event_id], references: [id])
+}
