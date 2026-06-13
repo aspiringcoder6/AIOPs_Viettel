@@ -10,6 +10,13 @@ enum EVENT_TYPE{
     DISK_FULL
     CONNECTION_FAILURE
 }
+enum INCIDENT_STATUS{
+    OPEN
+    ACKNOWLEDGED
+    INVESTIGATING
+    RESOLVED
+    CLOSED
+}
 model Service{
     id UUID @id @default(uuid())
     name String @unique
@@ -52,10 +59,54 @@ model Incident{
     severity String
     root_cause String
     confidence FLOAT
-    t
-    status String
+    status INCIDENT_STATUS
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
     contextBundle ContextBundle @relation(fields: [context_bundle_id], references: [id])
     event Events @relation(fields: [event_id], references: [id])
+}
+model AI_ANALYSIS{
+    id UUID @id @default(uuid())
+    incident_id UUID
+    provider String
+    model String
+    prompt String
+    response String
+    tokens_used Int
+    createdAt DateTime @default(now())
+    incident Incident @relation(fields: [incident_id], references: [id])
+}
+model recommendations{
+    id UUID @id @default(uuid())
+    incident_id UUID
+    recommendation String
+    priority INT
+    executed Boolean @default(false)
+    createdAt DateTime @default(now())
+    incident Incident @relation(fields: [incident_id], references: [id])
+}
+model alerts{
+    id UUID @id @default(uuid())
+    incident_id UUID
+    channel String
+    status String
+    recipient String
+    message String
+    sent_at DateTime @default(now())
+    seen_at DateTime?
+    incident Incident @relation(fields: [incident_id], references: [id])
+}
+model chat_sessions{
+    id UUID @id @default(uuid())
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    incident Incident @relation(fields: [incident_id], references: [id])
+}
+model chat_messages{
+    id UUID @id @default(uuid())
+    session_id UUID
+    role String
+    message String
+    timestamp DateTime @default(now())
+    chat_sessions chat_sessions @relation(fields: [session_id], references: [id])
 }
