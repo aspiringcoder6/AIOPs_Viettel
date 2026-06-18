@@ -41,6 +41,9 @@ async function waitForRedis() {
         }
     }
 }
+redisClient.on("error",(err)=>{
+    console.error("Redis Error:", err);
+})
 async function startServer(){
     await waitForDatabase();
     await waitForRedis();
