@@ -4,7 +4,7 @@ const PROMETHEUS_URL =
   process.env.PROMETHEUS_URL ||
   "http://localhost:9090";
 
-async function query(promql) {
+export async function query(promql) {
 
   const response = await axios.get(
     `${PROMETHEUS_URL}/api/v1/query`,
@@ -17,7 +17,3 @@ async function query(promql) {
 
   return response.data.data.result;
 }
-
-module.exports = {
-  query
-};

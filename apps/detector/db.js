@@ -1,10 +1,9 @@
-import pool from "pg"
-const pool = new Pool({
+import {Pool} from "pg"
+
+export const pool = new Pool({
   host: "localhost",
-  port: 5432,
-  user: "postgres",
-  password: "postgres",
+  port: 5433,
+  user: "admin",
+  password: "password",
   database: "aiops"
 });
-
-module.exports = pool;
