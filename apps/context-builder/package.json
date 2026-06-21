@@ -1,0 +1,16 @@
+{
+  "name": "context-builder",
+  "version": "1.0.0",
+  "description": "Builds context bundles for detected AIOps events",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "once": "RUN_ONCE=true node index.js"
+  },
+  "dependencies": {
+    "@elastic/elasticsearch": "^8.13.0",
+    "axios": "^1.18.0",
+    "pg": "^8.21.0"
+  }
+}

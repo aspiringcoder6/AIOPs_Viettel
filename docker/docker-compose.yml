@@ -93,3 +93,21 @@ services:
 
     depends_on:
       - postgres
+
+  context-builder:
+    build:
+      context: ../apps/context-builder
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+      PROMETHEUS_URL: http://prometheus:9090
+      ELASTIC_URL: http://elasticsearch:9200
+
+    depends_on:
+      - postgres
+      - prometheus
+      - elasticsearch

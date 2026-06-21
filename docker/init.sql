@@ -34,3 +34,23 @@ CREATE TABLE active_incidents (
 
     resolved_at TIMESTAMP
 );
+
+CREATE TABLE context_bundles (
+    id SERIAL PRIMARY KEY,
+
+    event_id INTEGER NOT NULL REFERENCES events(id),
+
+    start_time TIMESTAMP NOT NULL,
+
+    end_time TIMESTAMP NOT NULL,
+
+    affected_services JSONB NOT NULL,
+
+    logs JSONB NOT NULL,
+
+    metrics JSONB NOT NULL,
+
+    summary TEXT,
+
+    created_at TIMESTAMP DEFAULT NOW()
+);
