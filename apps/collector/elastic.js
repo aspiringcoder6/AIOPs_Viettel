@@ -1,7 +1,8 @@
-import Client from "@elastic/elasticsearch"
+import {Client} from "@elastic/elasticsearch"
 
-const es = new Client({
-  node: "http://elasticsearch:9200"
+export const es = new Client({
+  node: process.env.ELASTIC_URL || "http://localhost:9200"
+
 });
 
 await es.index({

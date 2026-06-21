@@ -107,3 +107,110 @@ export async function detectLatencySpike() {
     console.error('[DETECTOR] Latency detection error:', err.message);
   }
 }
+export async function detectErrorSpike() {
+  try {
+
+    const result = await query(`
+      sum(rate(http_errors_total[1m]))
+      /
+      sum(rate(http_requests_total[1m])) * 100
+    `);
+
+    if (!result || result.length === 0) {
+      console.log('[DETECTOR] Error Rate: No data available');
+      return;
+    }
+
+    let anomalies = 0;
+
+    for (const item of result) {
+
+      const errorRatio =
+        parseFloat(item.value[1]);
+
+      if (errorRatio > 5) {
+
+        await createEvent(
+          "ERROR_SPIKE",
+          "node-api",
+          "P1",
+          `Error rate: ${errorRatio.toFixed(2)}%`
+        );
+
+        anomalies++;
+      }
+    }
+
+    if (anomalies > 0) {
+      console.log(
+        `[DETECTOR] Error Rate: Found ${anomalies} spike(s)`
+      );
+    }
+
+  } catch (err) {
+    console.error(
+      '[DETECTOR] Error detection error:',
+      err.message
+    );
+  }
+}
+export async function detectMemorySpike() {
+
+  try {
+    //Querying memory percentage
+    const result = await query(`
+      (container_memory_usage_bytes
+      /
+      container_spec_memory_limit_bytes)
+      * 100
+    `);
+
+    if (!result || result.length === 0) {
+      console.log(
+        '[DETECTOR] Memory: No data available'
+      );
+      return;
+    }
+
+    let anomalies = 0;
+
+    for (const item of result) {
+
+      const service =
+        item.metric
+        .container_label_com_docker_compose_service;
+
+      if (!service) continue;
+
+      const memoryPercent =
+        parseFloat(item.value[1]);
+
+      //If memory rate exceeds 80% then we count it as an anomaly
+      if (memoryPercent > 80) {
+
+        await createEvent(
+          "MEMORY_SPIKE",
+          service,
+          "P2",
+          `Memory usage ${memoryPercent.toFixed(1)}`
+        );
+
+        anomalies++;
+      }
+    }
+
+    if (anomalies > 0) {
+      console.log(
+        `[DETECTOR] Memory: Found ${anomalies} spike(s)`
+      );
+    }
+
+  } catch (err) {
+
+    console.error(
+      '[DETECTOR] Memory detection error:',
+      err.message
+    );
+
+  }
+}

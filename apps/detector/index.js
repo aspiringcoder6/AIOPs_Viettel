@@ -1,4 +1,4 @@
-import {detectCpuSpike, detectLatencySpike, detectServiceDown} from "./rules.js"
+import {detectCpuSpike, detectLatencySpike, detectServiceDown,detectMemorySpike,detectErrorSpike} from "./rules.js"
 import {pool} from './db.js';
 import axios from 'axios';
 
@@ -29,8 +29,14 @@ async function run() {
   console.log('[DETECTOR] Scanning for anomalies...');
 
   try {
-    await detectCpuSpike();
     await detectLatencySpike();
+
+    await detectCpuSpike();
+
+    await detectMemorySpike();
+
+    await detectErrorSpike();
+
     await detectServiceDown();
     console.log('[DETECTOR] Scan complete');
   } catch(err) {

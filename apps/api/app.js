@@ -3,7 +3,7 @@ import healthRoutes from './src/routes/healthRoutes.js';
 import incidentRoutes from './src/routes/incidentRoutes.js'
 import redisClient from './src/redis/client.js';
 import metricsRoutes from './src/routes/metricsRoutes.js'
-import {httpRequestsTotal,requestDuration} from './src/services/metrics.js'
+import {httpRequestsTotal,requestDuration,errorCounter} from './src/services/metrics.js'
 const app = express();
 //Middleware to get metrics
 const EXCLUDED_ROUTES = [
@@ -15,12 +15,18 @@ app.use((req, res, next) => {
     return next();
   }
   const end = requestDuration.startTimer();
-
   res.on("finish", () => {
     end({
       method: req.method,
       route: req.path,
     });
+    if (res.statusCode >= 500) {
+      errorCounter.inc({
+        method: req.method,
+        route: req.path,
+        status: res.statusCode,
+      });
+      }
     httpRequestsTotal.inc({
       method: req.method,
       route: req.path,

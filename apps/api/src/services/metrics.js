@@ -11,6 +11,11 @@ export const httpRequestsTotal = new client.Counter({
   help: "Total HTTP requests",
   labelNames: ["method", "route", "status"],
 });
+export const errorCounter = new client.Counter({
+  name: "http_errors_total",
+  help: "Total HTTP errors",
+  labelNames: ["method", "route", "status"]
+});
 export const requestDuration = new client.Histogram({
   name: "http_request_duration_seconds",
   help: "Request duration",
@@ -18,4 +23,5 @@ export const requestDuration = new client.Histogram({
 });
 register.registerMetric(requestDuration);
 register.registerMetric(httpRequestsTotal);
+register.registerMetric(errorCounter);
 
