@@ -94,6 +94,36 @@ services:
     depends_on:
       - postgres
 
+  collector:
+    build:
+      context: ../apps/collector
+
+    environment:
+      ELASTIC_URL: http://elasticsearch:9200
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    depends_on:
+      - elasticsearch
+      - node-api
+
+  detector:
+    build:
+      context: ../apps/detector
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+      PROMETHEUS_URL: http://prometheus:9090
+
+    depends_on:
+      - postgres
+      - prometheus
+
   context-builder:
     build:
       context: ../apps/context-builder
