@@ -1,5 +1,8 @@
 import docker from "./dockerLogs.js";
-import { es } from "./elastic.js";
+import {
+  es,
+  waitForElasticsearch,
+} from "./elastic.js";
 
 const allowedServices = [
   "node-api",
@@ -7,16 +10,23 @@ const allowedServices = [
   "redis",
   "nginx"
 ];
+
+function sanitizeText(value) {
+  return String(value)
+    .replace(/\u0000/g, "")
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim();
+}
+
 //Strip the multiplexed binary format
 function cleanDockerChunk(chunk) {
   if (!chunk || chunk.length <= 8) {
     return "";
   }
 
-  return chunk
-    .slice(8)
-    .toString("utf8")
-    .trim();
+  const payload = chunk.slice(8).toString("utf8");
+
+  return sanitizeText(payload);
 }
 
 function parseLog(service, message) {
@@ -42,7 +52,7 @@ function parseLog(service, message) {
     timestamp: new Date(),
     service,
     level,
-    message
+    message: sanitizeText(message)
   };
 }
 
@@ -119,6 +129,8 @@ async function watchContainer(info) {
 }
 
 async function start() {
+  await waitForElasticsearch();
+
   const containers =
     await docker.listContainers();
 

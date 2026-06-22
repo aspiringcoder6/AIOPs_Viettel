@@ -20,13 +20,14 @@ export async function detectCpuSpike() {
       const service = item.metric.container_label_com_docker_compose_service;
 
       if (!service) continue;
-
+      
       if (cpu > 0.8) {
         await createEvent(
           "CPU_SPIKE",
           service,
           "P2",
-          `CPU usage ${(cpu * 100).toFixed(2)}%`
+          `Abnormal CPU Usage detected`,
+          cpu
         );
         anomalies++;
       }
@@ -59,7 +60,8 @@ export async function detectServiceDown() {
           "SERVICE_DOWN",
           item.metric.job,
           "P1",
-          "Target unreachable"
+          "Target unreachable",
+          value
         );
         anomalies++;
       }
@@ -94,7 +96,8 @@ export async function detectLatencySpike() {
           "LATENCY_SPIKE",
           "node-api",
           "P2",
-          `Latency ${latency.toFixed(3)}s`
+          `Abnormal latency detected`,
+          latency
         );
         anomalies++;
       }
@@ -134,7 +137,8 @@ export async function detectErrorSpike() {
           "ERROR_SPIKE",
           "node-api",
           "P1",
-          `Error rate: ${errorRatio.toFixed(2)}%`
+          `Abnormal error rate detected`,
+          errorRatio
         );
 
         anomalies++;
@@ -192,7 +196,8 @@ export async function detectMemorySpike() {
           "MEMORY_SPIKE",
           service,
           "P2",
-          `Memory usage ${memoryPercent.toFixed(1)}`
+          `Abnormal memory usage detected`,
+          memoryPercent
         );
 
         anomalies++;

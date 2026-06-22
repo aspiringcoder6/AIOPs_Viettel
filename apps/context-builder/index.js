@@ -11,10 +11,31 @@ const POLL_INTERVAL_MS =
   Number(process.env.POLL_INTERVAL_MS) ||
   30000;
 
+async function retry(name, action) {
+  const maxRetries = Number(process.env.STARTUP_RETRIES || 30);
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await action();
+      console.log(`[CONTEXT] ${name} connected`);
+      return;
+    }
+    catch (err) {
+      console.log(
+        `[CONTEXT] Waiting for ${name} (${attempt}/${maxRetries}): ${err.message}`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+
+  throw new Error(`${name} did not become ready`);
+}
+
 async function verifyDatabase() {
-  await pool.query("SELECT NOW()");
-  await ensureSchema();
-  console.log("[CONTEXT] Database connected");
+  await retry("Database", async () => {
+    await pool.query("SELECT NOW()");
+    await ensureSchema();
+  });
 }
 
 async function run() {

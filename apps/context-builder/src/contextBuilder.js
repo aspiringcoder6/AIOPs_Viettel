@@ -4,7 +4,43 @@ import { queryMetric } from "./prometheus.js";
 
 const WINDOW_MINUTES = Number(process.env.CONTEXT_WINDOW_MINUTES || 5);
 
+function sanitizeText(value) {
+  return String(value ?? "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
+    .trim();
+}
+
+function sanitizeValue(value) {
+  if (typeof value === "string") {
+    return sanitizeText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        sanitizeText(key),
+        sanitizeValue(entry),
+      ])
+    );
+  }
+
+  return value;
+}
+
+function toSafeJson(value) {
+  return JSON.stringify(sanitizeValue(value))
+    .replace(/\\u0000/gi, "")
+    .replace(/\\u000[1-8bcef]/gi, "")
+    .replace(/\\u001[0-9a-f]/gi, "")
+    .replace(/\\u007f/gi, "");
+}
+
 export async function getPendingEvents(limit = 5) {
+  // Select events that have no context bundle (meaning it's pending)
   const result = await pool.query(
     `
     SELECT e.*
@@ -20,7 +56,7 @@ export async function getPendingEvents(limit = 5) {
 
   return result.rows;
 }
-
+//Get metrics at the moment calling this function
 async function getMetricsSnapshot(serviceName) {
   const metrics = [
     queryMetric("service_up", `up{job="${serviceName}"}`),
@@ -38,7 +74,7 @@ function summarizeBundle(event, logs, metrics) {
   const errorLogs = logs.filter((log) => log.level === "ERROR").length;
   const warnLogs = logs.filter((log) => log.level === "WARN").length;
 
-  return `${event.event_type} on ${event.service_name}: collected ${logs.length} logs (${errorLogs} errors, ${warnLogs} warnings) and ${metrics.length} metric snapshots.`;
+  return `${event.event_type} on ${event.service_name}: collected a total of ${logs.length} logs (${errorLogs} errors, ${warnLogs} warnings) and ${metrics.length} metric snapshots.`;
 }
 
 export async function buildContextBundle(event) {
@@ -46,10 +82,12 @@ export async function buildContextBundle(event) {
   const startTime = new Date(detectedAt.getTime() - WINDOW_MINUTES * 60 * 1000);
   const endTime = new Date(detectedAt.getTime() + WINDOW_MINUTES * 60 * 1000);
 
-  const [logs, metrics] = await Promise.all([
+  const [rawLogs, metrics] = await Promise.all([
     getLogsAroundEvent(event, startTime, endTime),
     getMetricsSnapshot(event.service_name),
   ]);
+
+  const logs = sanitizeValue(rawLogs);
 
   const affectedServices = [
     ...new Set([
@@ -78,9 +116,9 @@ export async function buildContextBundle(event) {
       event.id,
       startTime,
       endTime,
-      JSON.stringify(affectedServices),
-      JSON.stringify(logs),
-      JSON.stringify(metrics),
+      toSafeJson(affectedServices),
+      toSafeJson(logs),
+      toSafeJson(metrics),
       summary,
     ]
   );
