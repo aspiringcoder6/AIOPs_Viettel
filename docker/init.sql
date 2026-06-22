@@ -54,3 +54,23 @@ CREATE TABLE context_bundles (
 
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE ai_analyses (
+    id SERIAL PRIMARY KEY,
+
+    context_bundle_id INTEGER NOT NULL UNIQUE REFERENCES context_bundles(id),
+
+    event_id INTEGER NOT NULL REFERENCES events(id),
+
+    severity VARCHAR(10) NOT NULL,
+
+    root_cause TEXT NOT NULL,
+
+    confidence DOUBLE PRECISION,
+
+    recommendations JSONB NOT NULL,
+
+    raw_response TEXT,
+
+    created_at TIMESTAMP DEFAULT NOW()
+);

@@ -141,3 +141,20 @@ services:
       - postgres
       - prometheus
       - elasticsearch
+
+  agent:
+    build:
+      context: ../apps/agent
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+      GEMINI_API_KEY: AIzaSyBYzCsdNW-DdIO2UQ2p3KbOQRvGxMfbzAk
+      GEMINI_MODEL: gemini-3.5-flash
+
+    depends_on:
+      - postgres
+      - context-builder
