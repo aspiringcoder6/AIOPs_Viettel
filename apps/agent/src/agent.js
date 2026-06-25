@@ -3,13 +3,17 @@ import { analyzeBundle } from "./providers.js";
 
 //This is to reduce the context bundle to reasonable size
 function buildPromptContext(bundle) {
-  const logs = typeof bundle.logs === "string"
-    ? JSON.parse(bundle.logs)
-    : (bundle.logs ?? []);
+  const parseLax = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === "string") {
+      try { return JSON.parse(val); } catch { return []; }
+    }
+    return [];
+  };
 
-  const metrics = typeof bundle.metrics === "string"
-    ? JSON.parse(bundle.metrics)
-    : (bundle.metrics ?? []);
+  const logs    = parseLax(bundle.logs);
+  const metrics = parseLax(bundle.metrics);
 
   // Keep only error/warn logs, capped at a safe limit
   const MAX_LOGS = 30;
@@ -87,7 +91,7 @@ export async function getPendingBundles(limit = 3) {
     `,
     [limit]
   );
-
+  console.log(result.rows);
   return result.rows;
 }
 

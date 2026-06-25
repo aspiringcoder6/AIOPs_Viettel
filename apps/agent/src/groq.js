@@ -24,21 +24,10 @@ function getApiKey() {
   return process.env.GROQ_API_KEY;
 }
 
-function getResponseText(data) {
-  if (data.output_text) {
-    return data.output_text;
-  }
-
-  const parts = data.output || [];
-
-  return parts
-    .flatMap((item) => item.content || [])
-    .map((content) => content.text || "")
-    .join("");
-}
-
 export async function analyzeWithGroq(bundle) {
-  const response = await fetch(`${GROQ_API_URL}/responses`, {
+    console.log("[AGENT] Groq URL:", `${GROQ_API_URL}/chat/completions`);
+
+  const response = await fetch(`${GROQ_API_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${getApiKey()}`,
@@ -46,7 +35,12 @@ export async function analyzeWithGroq(bundle) {
     },
     body: JSON.stringify({
       model: GROQ_MODEL,
-      input: buildPrompt(bundle),
+      messages: [
+        {
+          role: "user",
+          content: buildPrompt(bundle),
+        },
+      ],
       temperature: 0.2,
     }),
   });
@@ -57,7 +51,12 @@ export async function analyzeWithGroq(bundle) {
   }
 
   const data = await response.json();
-  const text = getResponseText(data);
+  const text = data.choices?.[0]?.message?.content || "";
+  console.log("[AGENT] Groq raw response:", JSON.stringify(data, null, 2));
+  if (!text) {  
+    throw new Error("Groq returned empty response");
+  }
+
   const parsed = extractJson(text);
 
   return {

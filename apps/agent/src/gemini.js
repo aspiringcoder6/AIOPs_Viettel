@@ -19,6 +19,8 @@ function getApiKey() {
 }
 
 function compactJson(value, maxLength = 12000) {
+  if (value === undefined || value === null) return "[]";
+  
   const json = JSON.stringify(value, null, 2);
 
   if (json.length <= maxLength) {
