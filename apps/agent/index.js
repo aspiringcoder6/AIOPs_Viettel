@@ -37,8 +37,8 @@ async function verifyStartup() {
     await ensureSchema();
   });
 
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("GEMINI_API_KEY is required");
+  if (!process.env.GROQ_API_KEY && !process.env.GEMINI_API_KEY) {
+    throw new Error("GROQ_API_KEY or GEMINI_API_KEY is required");
   }
 }
 

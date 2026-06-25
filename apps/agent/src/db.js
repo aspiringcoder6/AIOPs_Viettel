@@ -18,8 +18,16 @@ export async function ensureSchema() {
       root_cause TEXT NOT NULL,
       confidence DOUBLE PRECISION,
       recommendations JSONB NOT NULL,
+      provider VARCHAR(50),
+      model VARCHAR(100),
       raw_response TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE ai_analyses
+    ADD COLUMN IF NOT EXISTS provider VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS model VARCHAR(100)
   `);
 }

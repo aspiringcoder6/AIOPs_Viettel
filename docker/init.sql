@@ -70,6 +70,10 @@ CREATE TABLE ai_analyses (
 
     recommendations JSONB NOT NULL,
 
+    provider VARCHAR(50),
+
+    model VARCHAR(100),
+
     raw_response TEXT,
 
     created_at TIMESTAMP DEFAULT NOW()

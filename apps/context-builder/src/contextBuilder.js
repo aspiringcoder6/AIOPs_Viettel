@@ -71,12 +71,21 @@ async function getMetricsSnapshot(serviceName) {
 }
 
 function summarizeBundle(event, logs, metrics) {
-  const errorLogs = logs.filter((log) => log.level === "ERROR").length;
-  const warnLogs = logs.filter((log) => log.level === "WARN").length;
+  const errorLogs = logs.filter(l => l.level === "ERROR");
+  const warnLogs  = logs.filter(l => l.level === "WARN");
 
-  return `${event.event_type} on ${event.service_name}: collected a total of ${logs.length} logs (${errorLogs} errors, ${warnLogs} warnings) and ${metrics.length} metric snapshots.`;
+  const topErrors = errorLogs
+    .slice(0, 5)
+    .map(l => l.message)
+    .join("; ");
+
+  return (
+    `${event.event_type} on ${event.service_name}: ` +
+    `${logs.length} logs (${errorLogs.length} errors, ${warnLogs.length} warnings), ` +
+    `${metrics.length} metric snapshots. ` +
+    (topErrors ? `Top errors: ${topErrors}` : "No errors logged.")
+  );
 }
-
 export async function buildContextBundle(event) {
   const detectedAt = new Date(event.detected_at);
   const startTime = new Date(detectedAt.getTime() - WINDOW_MINUTES * 60 * 1000);

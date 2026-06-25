@@ -4,7 +4,11 @@ const GEMINI_API_URL =
 
 const GEMINI_MODEL =
   process.env.GEMINI_MODEL ||
-  "gemini-3.5-flash";
+  "gemini-2.0-flash";
+
+export function hasGeminiKey() {
+  return Boolean(process.env.GEMINI_API_KEY);
+}
 
 function getApiKey() {
   if (!process.env.GEMINI_API_KEY) {
@@ -24,7 +28,7 @@ function compactJson(value, maxLength = 12000) {
   return `${json.slice(0, maxLength)}\n...truncated`;
 }
 
-function buildPrompt(bundle) {
+export function buildPrompt(bundle) {
   return `
 You are an AIOps incident analysis agent.
 
@@ -59,7 +63,7 @@ ${compactJson(bundle.logs)}
 `.trim();
 }
 
-function extractJson(text) {
+export function extractJson(text) {
   const cleaned = text
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
@@ -76,7 +80,7 @@ function extractJson(text) {
   return JSON.parse(cleaned.slice(start, end + 1));
 }
 
-function normalizeAnalysis(parsed) {
+export function normalizeAnalysis(parsed) {
   const severity = String(parsed.severity || "P3").toUpperCase();
   const allowedSeverities = new Set(["P1", "P2", "P3"]);
   const recommendations = Array.isArray(parsed.recommendations)
@@ -94,7 +98,7 @@ function normalizeAnalysis(parsed) {
   };
 }
 
-export async function analyzeBundle(bundle) {
+export async function analyzeWithGemini(bundle) {
   const response = await fetch(
     `${GEMINI_API_URL}/models/${GEMINI_MODEL}:generateContent?key=${getApiKey()}`,
     {
@@ -136,6 +140,8 @@ export async function analyzeBundle(bundle) {
 
   return {
     ...normalizeAnalysis(parsed),
+    provider: "gemini",
+    model: GEMINI_MODEL,
     raw_response: text,
   };
 }
