@@ -1,0 +1,14 @@
+{
+  "name": "alert-manager",
+  "version": "1.0.0",
+  "description": "Groups AI analyses into active incidents and console alerts",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "once": "RUN_ONCE=true node index.js"
+  },
+  "dependencies": {
+    "pg": "^8.21.0"
+  }
+}

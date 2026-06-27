@@ -49,6 +49,8 @@ Responsibilities:
 - Gather recent logs
 - Gather related metrics
 - Gather logs from dependent services
+Problem: If we put every log into the context builder, it will build up token really quick and this is not good since it will be a waste
+Fix: Use the summary field to my advantage and build a slim context window
 Output:
 Context bundle
 {

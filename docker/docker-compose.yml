@@ -164,3 +164,18 @@ services:
     depends_on:
       - postgres
       - context-builder
+
+  alert-manager:
+    build:
+      context: ../apps/alert-manager
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+
+    depends_on:
+      - postgres
+      - agent
