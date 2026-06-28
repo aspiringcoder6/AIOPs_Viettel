@@ -179,3 +179,48 @@ services:
     depends_on:
       - postgres
       - agent
+
+  cli:
+    build:
+      context: ../apps/cli
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+
+    depends_on:
+      - postgres
+
+  dashboard-api:
+    build:
+      context: ../apps/dashboard-api
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+      CORS_ORIGIN: http://localhost:5173
+
+    ports:
+      - "3100:3100"
+
+    depends_on:
+      - postgres
+
+  dashboard:
+    build:
+      context: ../apps/dashboard
+
+    environment:
+      VITE_API_URL: http://localhost:3100/api
+
+    ports:
+      - "5173:5173"
+
+    depends_on:
+      - dashboard-api

@@ -1,0 +1,16 @@
+{
+  "name": "aiops-cli",
+  "version": "1.0.0",
+  "description": "CLI for inspecting AIOps incidents and alerts",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "aiops": "./index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "pg": "^8.21.0"
+  }
+}

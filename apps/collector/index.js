@@ -49,7 +49,7 @@ function parseLog(service, message) {
   }
 
   return {
-    timestamp: new Date(),
+    "@timestamp": new Date().toISOString(),
     service,
     level,
     message: sanitizeText(message)

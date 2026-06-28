@@ -11,14 +11,14 @@ export async function getLogsAroundEvent(event, startTime, endTime) {
     size: 100,
     sort: [
       {
-        timestamp: {
+        "@timestamp": {
           order: "asc",
         },
       },
     ],
     query: {
       range: {
-        timestamp: {
+        "@timestamp": {
           gte: startTime.toISOString(),
           lte: endTime.toISOString(),
         },

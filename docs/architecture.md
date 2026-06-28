@@ -13,7 +13,7 @@ Alert manager: Manage alert cleverly, classified related alerts
 4.Monitoring Stack: Docker Compose, Prometheus (Prometheus Monitoring with Julius | PromLabs )
 5.Log collection: Docker API
 #High level architecture diagram
-Docker containers that is running applications —> Log Collector through Docker API → Metrics Scraper using Prometheus, CPU Memory usage through CAdvisor (works with Prometheus) → Anomaly Detector using data from Prometheus →  Find the event of interest → Context Builder (MCP) → AI Agent → CLI Output
+Docker containers that is running applications —> Log Collector through Docker API → Metrics Scraper using Prometheus, CPU Memory usage through CAdvisor (works with Prometheus) → Anomaly Detector using data from Prometheus →  Find the event of interest → Context Builder (MCP) → AI Agent → CLI Output / Dashboard visualization
 #Components
 Log collector
 Responsibilities:
@@ -74,3 +74,13 @@ Responsibilities:
 - Group related incidents
 - Avoid duplicated alerts
 - Display alerts to user
+Dashboard Visualization:
+Techstack:
+- Frontend: ReactJS
+- Backend: NodeJS to receive data from AIOps backend
+Input:
+- Data from PostgreSQL and Elastic Search 
+Ouput:
+- Alert visualization/ recommendation
+- Incidents table and specific incidents info
+- Data, metrics recordings
