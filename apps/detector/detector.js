@@ -26,6 +26,45 @@ async function findRecentDuplicate(eventType, service) {
   return result.rows[0] || null;
 }
 
+async function recordSuppressedEvent(eventType, service, severity, description, metricValue, duplicate) {
+  await pool.query(
+    `
+    INSERT INTO suppressed_events(
+      event_type,
+      service_name,
+      severity,
+      description,
+      metric_value,
+      duplicate_event_id
+    )
+    VALUES($1,$2,$3,$4,$5,$6)
+    `,
+    [
+      eventType,
+      service,
+      severity,
+      description,
+      metricValue,
+      duplicate.id,
+    ]
+  );
+}
+
+export async function ensureDetectorSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS suppressed_events (
+      id SERIAL PRIMARY KEY,
+      event_type VARCHAR(50) NOT NULL,
+      service_name VARCHAR(100) NOT NULL,
+      severity VARCHAR(10) NOT NULL,
+      description TEXT,
+      metric_value DOUBLE PRECISION,
+      duplicate_event_id INTEGER REFERENCES events(id),
+      suppressed_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
 export async function createEvent(
   eventType,
   service,
@@ -52,6 +91,15 @@ export async function createEvent(
     );
 
     if (duplicate) {
+      await recordSuppressedEvent(
+        eventType,
+        service,
+        severity,
+        description,
+        metricValue,
+        duplicate
+      );
+
       console.log(
         `[DETECTOR] Skipped duplicate ${eventType} on ${service}; recent event ${duplicate.id} is inside ${EVENT_COOLDOWN_SECONDS}s cooldown`
       );

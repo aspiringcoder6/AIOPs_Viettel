@@ -74,6 +74,7 @@ Responsibilities:
 - Group related incidents
 - Avoid duplicated alerts
 - Display alerts to user
+- Send mail to user if service is down due to errors (IF ENOUGH TIME)
 Dashboard Visualization:
 Techstack:
 - Frontend: ReactJS

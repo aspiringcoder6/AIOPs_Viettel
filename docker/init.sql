@@ -19,6 +19,24 @@ CREATE TABLE events (
 
     detected_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE suppressed_events (
+    id SERIAL PRIMARY KEY,
+
+    event_type VARCHAR(50) NOT NULL,
+
+    service_name VARCHAR(100) NOT NULL,
+
+    severity VARCHAR(10) NOT NULL,
+
+    description TEXT,
+
+    metric_value DOUBLE PRECISION,
+
+    duplicate_event_id INTEGER REFERENCES events(id),
+
+    suppressed_at TIMESTAMP DEFAULT NOW()
+);
 CREATE TABLE active_incidents (
     id SERIAL PRIMARY KEY,
 

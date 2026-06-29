@@ -6,6 +6,7 @@ import {
   detectServiceDown,
 } from "./rules.js";
 import { pool } from "./db.js";
+import { ensureDetectorSchema } from "./detector.js";
 import axios from "axios";
 
 async function retry(name, action) {
@@ -31,6 +32,7 @@ async function retry(name, action) {
 async function verifyConnections() {
   await retry("Database", async () => {
     await pool.query("SELECT NOW()");
+    await ensureDetectorSchema();
   });
 
   await retry("Prometheus", async () => {

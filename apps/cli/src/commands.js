@@ -74,6 +74,33 @@ export async function listAlerts() {
   );
 }
 
+export async function listSuppressedEvents() {
+  const result = await pool.query(`
+    SELECT
+      id,
+      event_type,
+      service_name,
+      severity,
+      metric_value,
+      duplicate_event_id,
+      suppressed_at
+    FROM suppressed_events
+    ORDER BY suppressed_at DESC
+    LIMIT 20
+  `);
+
+  printRows(
+    result.rows,
+    "No suppressed events found.",
+    (event) => [
+      `#${event.id} ${event.severity} ${event.event_type} on ${event.service_name}`,
+      `Metric: ${event.metric_value ?? "n/a"}`,
+      `Duplicate of event: ${event.duplicate_event_id}`,
+      `Suppressed: ${formatDate(event.suppressed_at)}`,
+    ].join("\n")
+  );
+}
+
 export async function showIncident(id) {
   const result = await pool.query(
     `
@@ -140,12 +167,49 @@ export async function showIncident(id) {
   ].join("\n"));
 }
 
+export async function updateIncidentLifecycle(id, status) {
+  const resolvedAt =
+    status === "RESOLVED"
+      ? "NOW()"
+      : "NULL";
+
+  const result = await pool.query(
+    `
+    UPDATE active_incidents
+    SET
+      status = $1,
+      resolved_at = ${resolvedAt},
+      updated_at = NOW()
+    WHERE id = $2
+    RETURNING id, event_type, service_name, severity, status
+    `,
+    [
+      status,
+      id,
+    ]
+  );
+
+  const incident = result.rows[0];
+
+  if (!incident) {
+    console.log(`Incident ${id} not found.`);
+    return;
+  }
+
+  console.log(
+    `#${incident.id} ${incident.severity} ${incident.event_type} on ${incident.service_name} is now ${incident.status}`
+  );
+}
+
 export function printHelp() {
   console.log(`
 Usage:
   aiops incidents
   aiops alerts
   aiops incident <id>
+  aiops resolve <id>
+  aiops reopen <id>
+  aiops suppressed
 
 Environment:
   DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
