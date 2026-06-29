@@ -8,18 +8,18 @@ import {
   Activity,
   AlertTriangle,
   Bell,
+  CheckCircle2,
   Clock3,
   Database,
   RefreshCw,
-  Server,
+  RotateCcw,
 } from "lucide-react";
 import "./styles.css";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3100/api";
 
-//Shorthand function for getting response from backend
-async function getJson(path) {
-  const response = await fetch(`${API_URL}${path}`);
+async function requestJson(path, options = {}) {
+  const response = await fetch(`${API_URL}${path}`, options);
 
   if (!response.ok) {
     throw new Error(`Request failed ${response.status}`);
@@ -30,14 +30,18 @@ async function getJson(path) {
 
 function formatDate(value) {
   if (!value) {
-    return "null";
+    return "n/a";
   }
 
   return new Date(value).toLocaleString();
 }
-//Class function for severity
+
 function severityClass(severity) {
   return `severity severity-${String(severity || "P3").toLowerCase()}`;
+}
+
+function statusClass(status) {
+  return `status status-${String(status || "OPEN").toLowerCase()}`;
 }
 
 function Stat({ icon: Icon, label, value }) {
@@ -54,16 +58,62 @@ function Stat({ icon: Icon, label, value }) {
   );
 }
 
-function IncidentList({ incidents, selectedId, onSelect }) {
+function FilterBar({
+  filters,
+  services,
+  onChange,
+}) {
+  return (
+    <section className="filterbar">
+      <select
+        value={filters.status}
+        onChange={(event) => onChange({ ...filters, status: event.target.value })}
+        aria-label="Filter by status"
+      >
+        <option value="OPEN">Open</option>
+        <option value="RESOLVED">Resolved</option>
+        <option value="ALL">All statuses</option>
+      </select>
+
+      <select
+        value={filters.severity}
+        onChange={(event) => onChange({ ...filters, severity: event.target.value })}
+        aria-label="Filter by severity"
+      >
+        <option value="ALL">All severities</option>
+        <option value="P1">P1</option>
+        <option value="P2">P2</option>
+        <option value="P3">P3</option>
+      </select>
+
+      <select
+        value={filters.service}
+        onChange={(event) => onChange({ ...filters, service: event.target.value })}
+        aria-label="Filter by service"
+      >
+        <option value="ALL">All services</option>
+        {services.map((service) => (
+          <option key={service} value={service}>{service}</option>
+        ))}
+      </select>
+    </section>
+  );
+}
+
+function IncidentList({
+  incidents,
+  selectedId,
+  onSelect,
+}) {
   return (
     <section className="panel list-panel">
       <div className="panel-heading">
-        <h2>Open Incidents</h2>
+        <h2>Incidents</h2>
         <span>{incidents.length}</span>
       </div>
       <div className="incident-list">
         {incidents.length === 0 ? (
-          <div className="empty">No incidents found.</div>
+          <div className="empty">No incidents match the current filters.</div>
         ) : incidents.map((incident) => (
           <button
             className={`incident-row ${incident.id === selectedId ? "selected" : ""}`}
@@ -75,7 +125,10 @@ function IncidentList({ incidents, selectedId, onSelect }) {
               <strong>{incident.event_type}</strong>
               <span>{incident.service_name}</span>
             </span>
-            <span className="incident-time">{formatDate(incident.updated_at || incident.opened_at)}</span>
+            <span className={statusClass(incident.status)}>{incident.status}</span>
+            <span className="incident-time">
+              {formatDate(incident.updated_at || incident.opened_at)}
+            </span>
           </button>
         ))}
       </div>
@@ -83,10 +136,15 @@ function IncidentList({ incidents, selectedId, onSelect }) {
   );
 }
 
-function IncidentDetail({ incident }) {
+function IncidentDetail({
+  incident,
+  onLifecycleChange,
+  actionBusy,
+}) {
   const recommendations = Array.isArray(incident?.recommendations)
     ? incident.recommendations
     : [];
+  const isResolved = incident?.status === "RESOLVED";
 
   return (
     <section className="panel detail-panel">
@@ -99,7 +157,18 @@ function IncidentDetail({ incident }) {
               <div className="eyebrow">Incident #{incident.id}</div>
               <h2>{incident.event_type} on {incident.service_name}</h2>
             </div>
-            <span className={severityClass(incident.severity)}>{incident.severity}</span>
+            <div className="detail-actions">
+              <span className={severityClass(incident.severity)}>{incident.severity}</span>
+              <button
+                className={isResolved ? "secondary-button" : "resolve-button"}
+                disabled={actionBusy}
+                onClick={() => onLifecycleChange(incident.id, isResolved ? "reopen" : "resolve")}
+                title={isResolved ? "Reopen incident" : "Resolve incident"}
+              >
+                {isResolved ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}
+                <span>{isResolved ? "Reopen" : "Resolve"}</span>
+              </button>
+            </div>
           </div>
 
           <div className="detail-grid">
@@ -116,8 +185,27 @@ function IncidentDetail({ incident }) {
               <strong>{formatDate(incident.detected_at)}</strong>
             </div>
             <div>
-              <span>AI</span>
-              <strong>{incident.provider || "n/a"} {incident.model || ""}</strong>
+              <span>Resolved</span>
+              <strong>{formatDate(incident.resolved_at)}</strong>
+            </div>
+          </div>
+
+          <div className="detail-grid detail-grid-secondary">
+            <div>
+              <span>AI Provider</span>
+              <strong>{incident.provider || "n/a"}</strong>
+            </div>
+            <div>
+              <span>Model</span>
+              <strong>{incident.model || "n/a"}</strong>
+            </div>
+            <div>
+              <span>Confidence</span>
+              <strong>{incident.confidence ?? "n/a"}</strong>
+            </div>
+            <div>
+              <span>Analyzed</span>
+              <strong>{formatDate(incident.analyzed_at)}</strong>
             </div>
           </div>
 
@@ -190,29 +278,65 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [selectedIncident, setSelectedIncident] = useState(null);
+  const [filters, setFilters] = useState({
+    status: "OPEN",
+    severity: "ALL",
+    service: "ALL",
+  });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [actionBusy, setActionBusy] = useState(false);
 
-  async function loadDashboard() {
+  const filteredIncidents = useMemo(() => {
+    return incidents.filter((incident) => {
+      const statusMatches =
+        filters.status === "ALL" ||
+        incident.status === filters.status;
+      const severityMatches =
+        filters.severity === "ALL" ||
+        incident.severity === filters.severity;
+      const serviceMatches =
+        filters.service === "ALL" ||
+        incident.service_name === filters.service;
+
+      return statusMatches && severityMatches && serviceMatches;
+    });
+  }, [incidents, filters]);
+
+  const services = useMemo(() => {
+    return [...new Set(incidents.map((incident) => incident.service_name))]
+      .filter(Boolean)
+      .sort();
+  }, [incidents]);
+
+  async function loadDashboard(preferredId = selectedId) {
     setError("");
     setLoading(true);
 
     try {
       const [summaryData, incidentData, alertData] = await Promise.all([
-        getJson("/summary"),
-        getJson("/incidents"),
-        getJson("/alerts"),
+        requestJson("/summary"),
+        requestJson("/incidents"),
+        requestJson("/alerts"),
       ]);
 
       setSummary(summaryData);
       setIncidents(incidentData);
       setAlerts(alertData);
 
-      const nextId = selectedId || incidentData[0]?.id || null;
+      const nextId =
+        preferredId ||
+        incidentData.find((incident) => incident.status === "OPEN")?.id ||
+        incidentData[0]?.id ||
+        null;
+
       setSelectedId(nextId);
 
       if (nextId) {
-        setSelectedIncident(await getJson(`/incidents/${nextId}`));
+        setSelectedIncident(await requestJson(`/incidents/${nextId}`));
+      }
+      else {
+        setSelectedIncident(null);
       }
     }
     catch (err) {
@@ -225,12 +349,48 @@ function App() {
 
   async function selectIncident(id) {
     setSelectedId(id);
-    setSelectedIncident(await getJson(`/incidents/${id}`));
+    setSelectedIncident(await requestJson(`/incidents/${id}`));
+  }
+
+  useEffect(() => {
+    if (filteredIncidents.length === 0) {
+      setSelectedId(null);
+      setSelectedIncident(null);
+      return;
+    }
+
+    const selectedIsVisible =
+      selectedId &&
+      filteredIncidents.some((incident) => incident.id === selectedId);
+
+    if (!selectedIsVisible) {
+      selectIncident(filteredIncidents[0].id).catch((err) => {
+        setError(err.message);
+      });
+    }
+  }, [filters, incidents]);
+
+  async function changeLifecycle(id, action) {
+    setActionBusy(true);
+    setError("");
+
+    try {
+      await requestJson(`/incidents/${id}/${action}`, {
+        method: "POST",
+      });
+      await loadDashboard(id);
+    }
+    catch (err) {
+      setError(err.message);
+    }
+    finally {
+      setActionBusy(false);
+    }
   }
 
   useEffect(() => {
     loadDashboard();
-    const timer = setInterval(loadDashboard, 30000);
+    const timer = setInterval(() => loadDashboard(), 30000);
 
     return () => clearInterval(timer);
   }, []);
@@ -238,8 +398,8 @@ function App() {
   const stats = useMemo(() => {
     return {
       open: summary?.incidents?.open ?? 0,
+      resolved: summary?.incidents?.resolved ?? 0,
       p1: summary?.incidents?.p1 ?? 0,
-      p2: summary?.incidents?.p2 ?? 0,
       alerts: summary?.alertsLast24h ?? 0,
     };
   }, [summary]);
@@ -251,7 +411,7 @@ function App() {
           <div className="eyebrow">AIOps Operations</div>
           <h1>Incident Dashboard</h1>
         </div>
-        <button className="icon-button" onClick={loadDashboard} disabled={loading} title="Refresh dashboard">
+        <button className="icon-button" onClick={() => loadDashboard()} disabled={loading} title="Refresh dashboard">
           <RefreshCw size={18} />
           <span>Refresh</span>
         </button>
@@ -261,18 +421,28 @@ function App() {
 
       <section className="stats-grid">
         <Stat icon={Activity} label="Open incidents" value={stats.open} />
+        <Stat icon={CheckCircle2} label="Resolved incidents" value={stats.resolved} />
         <Stat icon={AlertTriangle} label="P1 incidents" value={stats.p1} />
-        <Stat icon={Server} label="P2 incidents" value={stats.p2} />
         <Stat icon={Clock3} label="Alerts in 24h" value={stats.alerts} />
       </section>
 
+      <FilterBar
+        filters={filters}
+        services={services}
+        onChange={setFilters}
+      />
+
       <section className="workspace">
         <IncidentList
-          incidents={incidents}
+          incidents={filteredIncidents}
           selectedId={selectedId}
           onSelect={selectIncident}
         />
-        <IncidentDetail incident={selectedIncident} />
+        <IncidentDetail
+          incident={selectedIncident}
+          onLifecycleChange={changeLifecycle}
+          actionBusy={actionBusy}
+        />
         <AlertFeed alerts={alerts} />
       </section>
 

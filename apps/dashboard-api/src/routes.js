@@ -15,6 +15,7 @@ router.get("/summary", async (req, res, next) => {
         SELECT
           COUNT(*)::int AS total,
           COUNT(*) FILTER (WHERE status = 'OPEN')::int AS open,
+          COUNT(*) FILTER (WHERE status = 'RESOLVED')::int AS resolved,
           COUNT(*) FILTER (WHERE severity = 'P1')::int AS p1,
           COUNT(*) FILTER (WHERE severity = 'P2')::int AS p2,
           COUNT(*) FILTER (WHERE severity = 'P3')::int AS p3
@@ -57,7 +58,8 @@ router.get("/incidents", async (req, res, next) => {
         latest_event_id,
         latest_analysis_id,
         opened_at,
-        updated_at
+        updated_at,
+        resolved_at
       FROM active_incidents
       ORDER BY
         CASE severity
@@ -119,6 +121,63 @@ router.get("/incidents/:id", async (req, res, next) => {
       ...incident.rows[0],
       alerts: alerts.rows,
     });
+  }
+  catch (err) {
+    next(err);
+  }
+});
+
+async function updateIncidentStatus(id, status) {
+  const resolvedAt =
+    status === "RESOLVED"
+      ? "NOW()"
+      : "NULL";
+
+  const result = await pool.query(
+    `
+    UPDATE active_incidents
+    SET
+      status = $1,
+      resolved_at = ${resolvedAt},
+      updated_at = NOW()
+    WHERE id = $2
+    RETURNING *
+    `,
+    [
+      status,
+      id,
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
+router.post("/incidents/:id/resolve", async (req, res, next) => {
+  try {
+    const incident = await updateIncidentStatus(req.params.id, "RESOLVED");
+
+    if (!incident) {
+      res.status(404).json({ message: "Incident not found" });
+      return;
+    }
+
+    res.json(incident);
+  }
+  catch (err) {
+    next(err);
+  }
+});
+
+router.post("/incidents/:id/reopen", async (req, res, next) => {
+  try {
+    const incident = await updateIncidentStatus(req.params.id, "OPEN");
+
+    if (!incident) {
+      res.status(404).json({ message: "Incident not found" });
+      return;
+    }
+
+    res.json(incident);
   }
   catch (err) {
     next(err);
