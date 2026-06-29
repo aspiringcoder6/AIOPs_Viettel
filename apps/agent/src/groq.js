@@ -25,8 +25,6 @@ function getApiKey() {
 }
 
 export async function analyzeWithGroq(bundle) {
-    console.log("[AGENT] Groq URL:", `${GROQ_API_URL}/chat/completions`);
-
   const response = await fetch(`${GROQ_API_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -52,7 +50,7 @@ export async function analyzeWithGroq(bundle) {
 
   const data = await response.json();
   const text = data.choices?.[0]?.message?.content || "";
-  console.log("[AGENT] Groq raw response:", JSON.stringify(data, null, 2));
+
   if (!text) {  
     throw new Error("Groq returned empty response");
   }

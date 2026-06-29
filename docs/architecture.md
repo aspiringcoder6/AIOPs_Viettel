@@ -2,18 +2,18 @@
 #GOAL
 Build an AIOps system capable of:
 Log collecting: Collect logs from services through HTTP endpoints and Docker services
-Metrics scraping: Collect metrics (CPU, memory, request rate, error rate) from containers
-Context building (MCP): When discover event of interest (error spike, abnormal latency), automatically gather the context surrounding it, the logs from +-5 minutes, metrics of the current state, log from related services\
-AI Agent: Receive the Event + context bundle, call the LLM to assign a severity level, find the root cause, gives reccomendation
-Alert manager: Manage alert cleverly, classified related alerts
-#Techstack for the project
+Metrics scraping: Collect metrics (CPU, memory, request rate, error rate) from containers (Done)
+Context building (MCP): When discover event of interest (error spike, abnormal latency), automatically gather the context surrounding it, the logs from +-5 minutes, metrics of the current state, log from related services (Done)
+AI Agent: Receive the Event + context bundle, call the LLM to assign a severity level, find the root cause, gives reccomendation (Done)
+Alert manager: Manage alert cleverly, classified related alerts (Done)
+#Techstack for the project 
 1.Backend: Node.JS + Typescript, express, prisma
 2.AI Layer: Google Gemini API
 3.Storage: ElasticSearch for logs collecting, PostGreSQL for state + incidents alert
 4.Monitoring Stack: Docker Compose, Prometheus (Prometheus Monitoring with Julius | PromLabs )
 5.Log collection: Docker API
 #High level architecture diagram
-Docker containers that is running applications —> Log Collector through Docker API → Metrics Scraper using Prometheus, CPU Memory usage through CAdvisor (works with Prometheus) → Anomaly Detector using data from Prometheus →  Find the event of interest → Context Builder (MCP) → AI Agent → CLI Output
+Docker containers that is running applications —> Log Collector through Docker API → Metrics Scraper using Prometheus, CPU Memory usage through CAdvisor (works with Prometheus) → Anomaly Detector using data from Prometheus →  Find the event of interest → Context Builder (MCP) → AI Agent → CLI Output / Dashboard visualization
 #Components
 Log collector
 Responsibilities:
@@ -74,3 +74,14 @@ Responsibilities:
 - Group related incidents
 - Avoid duplicated alerts
 - Display alerts to user
+- Send mail to user if service is down due to errors (IF ENOUGH TIME)
+Dashboard Visualization:
+Techstack:
+- Frontend: ReactJS
+- Backend: NodeJS to receive data from AIOps backend
+Input:
+- Data from PostgreSQL and Elastic Search 
+Ouput:
+- Alert visualization/ recommendation
+- Incidents table and specific incidents info
+- Data, metrics recordings

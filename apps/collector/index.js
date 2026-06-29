@@ -47,9 +47,9 @@ function parseLog(service, message) {
   ) {
     level = "WARN";
   }
-
+  // Add timestamp field cus elastic require it
   return {
-    timestamp: new Date(),
+    "@timestamp": new Date().toISOString(),
     service,
     level,
     message: sanitizeText(message)

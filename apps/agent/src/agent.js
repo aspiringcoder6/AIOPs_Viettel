@@ -23,7 +23,7 @@ function buildPromptContext(bundle) {
     .map(log => ({
       level: log.level,
       message: log.message,
-      timestamp: log.timestamp,
+      timestamp: log["@timestamp"],
       service: log.service,
     }));
 
@@ -91,7 +91,6 @@ export async function getPendingBundles(limit = 3) {
     `,
     [limit]
   );
-  console.log(result.rows);
   return result.rows;
 }
 

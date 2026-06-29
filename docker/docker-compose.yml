@@ -1,109 +1,116 @@
 services:
   postgres:
     image: postgres:16
+    cpus: ${POSTGRES_CPUS:-0.75}
+    mem_limit: ${POSTGRES_MEMORY:-768m}
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: aiops
-    command: 
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-aiops}
+    command:
       - "postgres"
       - "-c"
       - "hba_file=/etc/postgresql/pg_hba.conf"
     ports:
-      - "5433:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U admin -d aiops"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-aiops}"]
       interval: 5s
       timeout: 5s
       retries: 10
+
   redis:
     image: redis:7
+    cpus: ${REDIS_CPUS:-0.25}
+    mem_limit: ${REDIS_MEMORY:-256m}
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+
   prometheus:
     image: prom/prometheus
-
+    cpus: ${PROMETHEUS_CPUS:-0.50}
+    mem_limit: ${PROMETHEUS_MEMORY:-512m}
     ports:
-      - "9090:9090"
-
+      - "${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-
     depends_on:
       - node-api
+
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
-
+    cpus: ${CADVISOR_CPUS:-0.35}
+    mem_limit: ${CADVISOR_MEMORY:-384m}
     ports:
-      - "8080:8080"
-
+      - "${CADVISOR_PORT:-8080}:8080"
     privileged: true
-
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
+
   nginx:
     image: nginx:latest
+    cpus: ${NGINX_CPUS:-0.25}
+    mem_limit: ${NGINX_MEMORY:-128m}
     ports:
-      - "80:80"
+      - "${NGINX_PORT:-80}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - node-api
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
-
+    cpus: ${ELASTICSEARCH_CPUS:-1.00}
+    mem_limit: ${ELASTICSEARCH_MEMORY:-1g}
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-
+      - ES_JAVA_OPTS=${ELASTICSEARCH_JAVA_OPTS:--Xms384m -Xmx384m}
     ports:
-      - "9200:9200"
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
 
-    mem_limit: 1g
   kibana:
     image: docker.elastic.co/kibana/kibana:8.13.4
-
+    cpus: ${KIBANA_CPUS:-0.50}
+    mem_limit: ${KIBANA_MEMORY:-512m}
     ports:
-      - "5601:5601"
-
+      - "${KIBANA_PORT:-5601}:5601"
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
-
     depends_on:
       - elasticsearch
+
   node-api:
     build:
       context: ../apps/api
-
+    cpus: ${NODE_API_CPUS:-0.50}
+    mem_limit: ${NODE_API_MEMORY:-512m}
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: aiops
-      DB_USER: admin
-      DB_PASSWORD: password
-
+      DB_NAME: ${POSTGRES_DB:-aiops}
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
-      - "3000:3000"
-
+      - "${NODE_API_PORT:-3000}:3000"
     depends_on:
       - postgres
 
   collector:
     build:
       context: ../apps/collector
-
+    cpus: ${COLLECTOR_CPUS:-0.35}
+    mem_limit: ${COLLECTOR_MEMORY:-384m}
     environment:
       ELASTIC_URL: http://elasticsearch:9200
-
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-
     depends_on:
       - elasticsearch
       - node-api
@@ -111,15 +118,16 @@ services:
   detector:
     build:
       context: ../apps/detector
-
+    cpus: ${DETECTOR_CPUS:-0.35}
+    mem_limit: ${DETECTOR_MEMORY:-384m}
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: aiops
-      DB_USER: admin
-      DB_PASSWORD: password
+      DB_NAME: ${POSTGRES_DB:-aiops}
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
       PROMETHEUS_URL: http://prometheus:9090
-
+      EVENT_COOLDOWN_SECONDS: ${EVENT_COOLDOWN_SECONDS:-120}
     depends_on:
       - postgres
       - prometheus
@@ -127,16 +135,16 @@ services:
   context-builder:
     build:
       context: ../apps/context-builder
-
+    cpus: ${CONTEXT_BUILDER_CPUS:-0.35}
+    mem_limit: ${CONTEXT_BUILDER_MEMORY:-384m}
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: aiops
-      DB_USER: admin
-      DB_PASSWORD: password
+      DB_NAME: ${POSTGRES_DB:-aiops}
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
       PROMETHEUS_URL: http://prometheus:9090
       ELASTIC_URL: http://elasticsearch:9200
-
     depends_on:
       - postgres
       - prometheus
@@ -145,22 +153,19 @@ services:
   agent:
     build:
       context: ../apps/agent
-
-    env_file:
-      - .env
-
+    cpus: ${AGENT_CPUS:-0.35}
+    mem_limit: ${AGENT_MEMORY:-384m}
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: aiops
-      DB_USER: admin
-      DB_PASSWORD: password
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      GROQ_API_KEY: ${GROQ_API_KEY}
+      DB_NAME: ${POSTGRES_DB:-aiops}
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
       GROQ_API_URL: ${GROQ_API_URL:-https://api.groq.com/openai/v1}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
-
     depends_on:
       - postgres
       - context-builder
@@ -168,14 +173,57 @@ services:
   alert-manager:
     build:
       context: ../apps/alert-manager
-
+    cpus: ${ALERT_MANAGER_CPUS:-0.25}
+    mem_limit: ${ALERT_MANAGER_MEMORY:-256m}
     environment:
       DB_HOST: postgres
       DB_PORT: 5432
-      DB_NAME: aiops
-      DB_USER: admin
-      DB_PASSWORD: password
-
+      DB_NAME: ${POSTGRES_DB:-aiops}
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
     depends_on:
       - postgres
       - agent
+
+  cli:
+    build:
+      context: ../apps/cli
+    cpus: ${CLI_CPUS:-0.25}
+    mem_limit: ${CLI_MEMORY:-256m}
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-aiops}
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    depends_on:
+      - postgres
+
+  dashboard-api:
+    build:
+      context: ../apps/dashboard-api
+    cpus: ${DASHBOARD_API_CPUS:-0.35}
+    mem_limit: ${DASHBOARD_API_MEMORY:-384m}
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-aiops}
+      DB_USER: ${POSTGRES_USER:-admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      CORS_ORIGIN: ${DASHBOARD_ORIGIN:-http://localhost:5173}
+    ports:
+      - "${DASHBOARD_API_PORT:-3100}:3100"
+    depends_on:
+      - postgres
+
+  dashboard:
+    build:
+      context: ../apps/dashboard
+    cpus: ${DASHBOARD_CPUS:-0.35}
+    mem_limit: ${DASHBOARD_MEMORY:-384m}
+    environment:
+      VITE_API_URL: ${DASHBOARD_API_PUBLIC_URL:-http://localhost:3100/api}
+    ports:
+      - "${DASHBOARD_PORT:-5173}:5173"
+    depends_on:
+      - dashboard-api
