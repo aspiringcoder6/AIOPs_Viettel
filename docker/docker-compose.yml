@@ -119,6 +119,7 @@ services:
       DB_USER: admin
       DB_PASSWORD: password
       PROMETHEUS_URL: http://prometheus:9090
+      EVENT_COOLDOWN_SECONDS: 120
 
     depends_on:
       - postgres

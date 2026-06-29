@@ -22,14 +22,15 @@ export async function detectCpuSpike() {
       if (!service) continue;
       
       if (cpu > 0.8) {
-        await createEvent(
+        const event = await createEvent(
           "CPU_SPIKE",
           service,
           "P2",
           `Abnormal CPU Usage detected`,
           cpu
         );
-        anomalies++;
+
+        if (event) anomalies++;
       }
     }
     
@@ -56,14 +57,15 @@ export async function detectServiceDown() {
       const value = parseInt(item.value[1]);
 
       if (value === 0) {
-        await createEvent(
+        const event = await createEvent(
           "SERVICE_DOWN",
           item.metric.job,
           "P1",
           "Target unreachable",
           value
         );
-        anomalies++;
+
+        if (event) anomalies++;
       }
     }
     
@@ -92,14 +94,15 @@ export async function detectLatencySpike() {
       const latency = parseFloat(item.value[1]);
 
       if (latency > 1) {
-        await createEvent(
+        const event = await createEvent(
           "LATENCY_SPIKE",
           "node-api",
           "P2",
           `Abnormal latency detected`,
           latency
         );
-        anomalies++;
+
+        if (event) anomalies++;
       }
     }
     
@@ -133,7 +136,7 @@ export async function detectErrorSpike() {
 
       if (errorRatio > 5) {
 
-        await createEvent(
+        const event = await createEvent(
           "ERROR_SPIKE",
           "node-api",
           "P1",
@@ -141,7 +144,7 @@ export async function detectErrorSpike() {
           errorRatio
         );
 
-        anomalies++;
+        if (event) anomalies++;
       }
     }
 
@@ -192,7 +195,7 @@ export async function detectMemorySpike() {
       //If memory rate exceeds 80% then we count it as an anomaly
       if (memoryPercent > 80) {
 
-        await createEvent(
+        const event = await createEvent(
           "MEMORY_SPIKE",
           service,
           "P2",
@@ -200,7 +203,7 @@ export async function detectMemorySpike() {
           memoryPercent
         );
 
-        anomalies++;
+        if (event) anomalies++;
       }
     }
 
