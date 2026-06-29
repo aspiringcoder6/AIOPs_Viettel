@@ -13,7 +13,7 @@ Alert manager: Manage alert cleverly, classified related alerts
 4.Monitoring Stack: Docker Compose, Prometheus (Prometheus Monitoring with Julius | PromLabs )
 5.Log collection: Docker API
 #High level architecture diagram
-Docker containers that is running applications —> Log Collector through Docker API → Metrics Scraper using Prometheus → Anomaly Detector using data from Prometheus →  Find the event of interest → Context Builder (MCP) → AI Agent → CLI Output
+Docker containers that is running applications —> Log Collector through Docker API → Metrics Scraper using Prometheus, CPU Memory usage through CAdvisor (works with Prometheus) → Anomaly Detector using data from Prometheus →  Find the event of interest → Context Builder (MCP) → AI Agent → CLI Output
 #Components
 Log collector
 Responsibilities:
@@ -35,6 +35,7 @@ Responsibilities:
 - Detect latency spikes
 - Detect error spikes
 - Detect service failures
+- (In Future) Use machine learning algorithms to better detect anomaly
 Output: 
 - Event of interest
 Example:
@@ -48,6 +49,8 @@ Responsibilities:
 - Gather recent logs
 - Gather related metrics
 - Gather logs from dependent services
+Problem: If we put every log into the context builder, it will build up token really quick and this is not good since it will be a waste
+Fix: Use the summary field to my advantage and build a slim context window
 Output:
 Context bundle
 {

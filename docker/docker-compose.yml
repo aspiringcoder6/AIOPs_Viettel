@@ -3,12 +3,17 @@ services:
     image: postgres:16
     volumes:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: password
       POSTGRES_DB: aiops
+    command: 
+      - "postgres"
+      - "-c"
+      - "hba_file=/etc/postgresql/pg_hba.conf"
     ports:
-      - "5432:5432"
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U admin -d aiops"]
       interval: 5s
@@ -29,6 +34,19 @@ services:
 
     depends_on:
       - node-api
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+
+    ports:
+      - "8080:8080"
+
+    privileged: true
+
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
   nginx:
     image: nginx:latest
     ports:
@@ -37,6 +55,28 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - node-api
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+
+    ports:
+      - "9200:9200"
+
+    mem_limit: 1g
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.13.4
+
+    ports:
+      - "5601:5601"
+
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+
+    depends_on:
+      - elasticsearch
   node-api:
     build:
       context: ../apps/api
@@ -53,3 +93,89 @@ services:
 
     depends_on:
       - postgres
+
+  collector:
+    build:
+      context: ../apps/collector
+
+    environment:
+      ELASTIC_URL: http://elasticsearch:9200
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    depends_on:
+      - elasticsearch
+      - node-api
+
+  detector:
+    build:
+      context: ../apps/detector
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+      PROMETHEUS_URL: http://prometheus:9090
+
+    depends_on:
+      - postgres
+      - prometheus
+
+  context-builder:
+    build:
+      context: ../apps/context-builder
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+      PROMETHEUS_URL: http://prometheus:9090
+      ELASTIC_URL: http://elasticsearch:9200
+
+    depends_on:
+      - postgres
+      - prometheus
+      - elasticsearch
+
+  agent:
+    build:
+      context: ../apps/agent
+
+    env_file:
+      - .env
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash}
+      GROQ_API_URL: ${GROQ_API_URL:-https://api.groq.com/openai/v1}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+
+    depends_on:
+      - postgres
+      - context-builder
+
+  alert-manager:
+    build:
+      context: ../apps/alert-manager
+
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aiops
+      DB_USER: admin
+      DB_PASSWORD: password
+
+    depends_on:
+      - postgres
+      - agent

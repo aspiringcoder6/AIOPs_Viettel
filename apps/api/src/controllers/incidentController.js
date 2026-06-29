@@ -52,9 +52,10 @@ export const getCPUSpikeRequest=async(req,res)=>{
 const memoryLeak=[]
 export const getMemorySpike=async(req,res)=>{
     memoryLeak.push(
-        new Array(1000000000).fill("TRASH")
-    )
+        Buffer.alloc(500 * 1024 * 1024)
+    );
+
     res.json({
-    allocations: memoryLeak.length,
+        memoryChunks: memoryLeak.length
     });
 }

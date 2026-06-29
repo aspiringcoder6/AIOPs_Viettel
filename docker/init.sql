@@ -4,3 +4,102 @@ CREATE TABLE users(
 );
 INSERT INTO users(name)
 VALUES ('TestUser');
+CREATE TABLE events (
+    id SERIAL PRIMARY KEY,
+
+    event_type VARCHAR(50) NOT NULL,
+
+    service_name VARCHAR(100) NOT NULL,
+
+    severity VARCHAR(10) NOT NULL,
+
+    description TEXT,
+
+    metric_value DOUBLE PRECISION,
+
+    detected_at TIMESTAMP DEFAULT NOW()
+);
+CREATE TABLE active_incidents (
+    id SERIAL PRIMARY KEY,
+
+    event_type VARCHAR(50) NOT NULL,
+
+    service_name VARCHAR(100) NOT NULL,
+
+    severity VARCHAR(10) NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+
+    opened_at TIMESTAMP DEFAULT NOW(),
+
+    resolved_at TIMESTAMP
+);
+
+CREATE TABLE context_bundles (
+    id SERIAL PRIMARY KEY,
+
+    event_id INTEGER NOT NULL REFERENCES events(id),
+
+    start_time TIMESTAMP NOT NULL,
+
+    end_time TIMESTAMP NOT NULL,
+
+    affected_services JSONB NOT NULL,
+
+    logs JSONB NOT NULL,
+
+    metrics JSONB NOT NULL,
+
+    summary TEXT,
+
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE ai_analyses (
+    id SERIAL PRIMARY KEY,
+
+    context_bundle_id INTEGER NOT NULL UNIQUE REFERENCES context_bundles(id),
+
+    event_id INTEGER NOT NULL REFERENCES events(id),
+
+    severity VARCHAR(10) NOT NULL,
+
+    root_cause TEXT NOT NULL,
+
+    confidence DOUBLE PRECISION,
+
+    recommendations JSONB NOT NULL,
+
+    provider VARCHAR(50),
+
+    model VARCHAR(100),
+
+    raw_response TEXT,
+
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+ALTER TABLE active_incidents
+ADD COLUMN IF NOT EXISTS latest_event_id INTEGER REFERENCES events(id),
+ADD COLUMN IF NOT EXISTS latest_analysis_id INTEGER REFERENCES ai_analyses(id),
+ADD COLUMN IF NOT EXISTS root_cause TEXT,
+ADD COLUMN IF NOT EXISTS recommendations JSONB,
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
+
+CREATE TABLE alerts (
+    id SERIAL PRIMARY KEY,
+
+    analysis_id INTEGER NOT NULL UNIQUE REFERENCES ai_analyses(id),
+
+    incident_id INTEGER NOT NULL REFERENCES active_incidents(id),
+
+    severity VARCHAR(10) NOT NULL,
+
+    channel VARCHAR(50) NOT NULL DEFAULT 'console',
+
+    message TEXT NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'SENT',
+
+    created_at TIMESTAMP DEFAULT NOW()
+);
