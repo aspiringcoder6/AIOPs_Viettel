@@ -117,9 +117,29 @@ router.get("/incidents/:id", async (req, res, next) => {
       [req.params.id]
     );
 
+    const timeline = await pool.query(
+      `
+      SELECT
+        id,
+        timeline_type,
+        message,
+        metadata,
+        created_at
+      FROM incident_timeline
+      WHERE incident_id = $1
+         OR event_id = $2
+      ORDER BY created_at ASC, id ASC
+      `,
+      [
+        req.params.id,
+        incident.rows[0].latest_event_id,
+      ]
+    );
+
     res.json({
       ...incident.rows[0],
       alerts: alerts.rows,
+      timeline: timeline.rows,
     });
   }
   catch (err) {
@@ -152,6 +172,32 @@ async function updateIncidentStatus(id, status) {
   return result.rows[0] || null;
 }
 
+async function recordLifecycleTimeline(incident, type, message) {
+  await pool.query(
+    `
+    INSERT INTO incident_timeline(
+      incident_id,
+      event_id,
+      analysis_id,
+      timeline_type,
+      message,
+      metadata
+    )
+    VALUES($1,$2,$3,$4,$5,$6)
+    `,
+    [
+      incident.id,
+      incident.latest_event_id,
+      incident.latest_analysis_id,
+      type,
+      message,
+      JSON.stringify({
+        status: incident.status,
+      }),
+    ]
+  );
+}
+
 router.post("/incidents/:id/resolve", async (req, res, next) => {
   try {
     const incident = await updateIncidentStatus(req.params.id, "RESOLVED");
@@ -160,6 +206,12 @@ router.post("/incidents/:id/resolve", async (req, res, next) => {
       res.status(404).json({ message: "Incident not found" });
       return;
     }
+
+    await recordLifecycleTimeline(
+      incident,
+      "INCIDENT_RESOLVED",
+      `Resolved incident ${incident.id}`
+    );
 
     res.json(incident);
   }
@@ -176,6 +228,12 @@ router.post("/incidents/:id/reopen", async (req, res, next) => {
       res.status(404).json({ message: "Incident not found" });
       return;
     }
+
+    await recordLifecycleTimeline(
+      incident,
+      "INCIDENT_REOPENED",
+      `Reopened incident ${incident.id}`
+    );
 
     res.json(incident);
   }

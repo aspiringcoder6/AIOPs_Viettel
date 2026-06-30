@@ -383,6 +383,39 @@ ol {
   padding: 10px 0;
 }
 
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.timeline-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 14px minmax(0, 1fr);
+}
+
+.timeline-marker {
+  background: #285a7a;
+  border-radius: 999px;
+  height: 9px;
+  margin-top: 5px;
+  width: 9px;
+}
+
+.timeline-row strong {
+  font-size: 13px;
+}
+
+.timeline-row p {
+  margin: 3px 0;
+}
+
+.timeline-row time {
+  color: #667085;
+  font-size: 12px;
+}
+
 .empty,
 .error {
   color: #667085;

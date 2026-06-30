@@ -155,7 +155,8 @@ function enrichMetrics(metrics, event, relatedServices) {
 //Get metrics at the moment calling this function
 async function getMetricsSnapshot(serviceName) {
   const metrics = [
-    queryMetric("service_up", `up{job="${serviceName}"}`),
+    queryMetric("container_presence", "count by (container_label_com_docker_compose_service) (container_last_seen)"),
+    queryMetric("scrape_target_up", "up"),
     queryMetric("request_rate", "sum(rate(http_requests_total[1m]))"),
     queryMetric("error_rate", "sum(rate(http_errors_total[1m])) / sum(rate(http_requests_total[1m])) * 100"),
     queryMetric("latency_seconds", "rate(http_request_duration_seconds_sum[1m]) / rate(http_request_duration_seconds_count[1m])"),
@@ -164,6 +165,26 @@ async function getMetricsSnapshot(serviceName) {
   ];
 
   return Promise.all(metrics);
+}
+//Record the timeline of the incidents
+async function recordTimeline(eventId, eventType, message, metadata = {}) {
+  await pool.query(
+    `
+    INSERT INTO incident_timeline(
+      event_id,
+      timeline_type,
+      message,
+      metadata
+    )
+    VALUES($1,$2,$3,$4)
+    `,
+    [
+      eventId,
+      eventType,
+      message,
+      JSON.stringify(metadata),
+    ]
+  );
 }
 
 function summarizeBundle(event, logs, metrics, dependencies) {
@@ -255,5 +276,19 @@ export async function buildContextBundle(event) {
     ]
   );
 
-  return result.rows[0];
+  const bundle = result.rows[0];
+
+  await recordTimeline(
+    event.id,
+    "CONTEXT_BUILT",
+    `Built context bundle ${bundle.id}`,
+    {
+      context_bundle_id: bundle.id,
+      affected_services: affectedServices,
+      log_count: logs.length,
+      metric_groups: metrics.length,
+    }
+  );
+
+  return bundle;
 }

@@ -27,7 +27,7 @@ function buildPromptContext(bundle) {
       service: log.service,
       relevance_score: log.relevance_score,
     }));
-
+  //Summarize Metrics into an object
   const metricSummary = metrics.map(m => ({
     name: m.name,
     values: Array.isArray(m.values)
@@ -124,7 +124,33 @@ export async function saveAnalysis(bundle, analysis) {
     ]
   );
 
-  return result.rows[0];
+  const saved = result.rows[0];
+  //Add to incident timeline to know the life cycle of the incident
+  await pool.query(
+    `
+    INSERT INTO incident_timeline(
+      event_id,
+      analysis_id,
+      timeline_type,
+      message,
+      metadata
+    )
+    VALUES($1,$2,$3,$4,$5)
+    `,
+    [
+      bundle.event_id,
+      saved.id,
+      "AI_ANALYZED",
+      `AI analysis ${saved.id} completed with severity ${saved.severity}`,
+      JSON.stringify({
+        provider: saved.provider,
+        model: saved.model,
+        confidence: saved.confidence,
+      }),
+    ]
+  );
+
+  return saved;
 }
 
 export async function analyzePendingBundle(bundle) {

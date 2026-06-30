@@ -55,6 +55,9 @@ Responsibilities:
 - Rank the logs by relevance and capped with CONTEXT_MAX_LOGS
 Problem: If we put every log into the context builder, it will build up token really quick and this is not good since it will be a waste
 Fix: Use the summary field to my advantage and build a slim context window
+Problem 2: If we put a limit on logs, we may miss out on important logs when sending to AI Agent
+Fix 2: Add a relevancy score to each logs, such that when we rank them and we limit them, we can get more relevant logs to the problem
+Better Fix 2: Pass the top level thread to AI Agent and make it decide which logs to read to find the root cause of the problem (IN FUTURE)
 Output:
 Context bundle
 {

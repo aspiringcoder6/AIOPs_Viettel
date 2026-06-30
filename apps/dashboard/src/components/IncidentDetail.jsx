@@ -3,6 +3,7 @@ import { formatDate, severityClass } from "../utils/dashboard";
 
 export function IncidentDetail({ incident, onLifecycleChange, actionBusy }) {
   const recommendations = Array.isArray(incident?.recommendations) ? incident.recommendations : [];
+  const timeline = Array.isArray(incident?.timeline) ? incident.timeline : [];
   const isResolved = incident?.status === "RESOLVED";
 
   return (
@@ -86,6 +87,26 @@ export function IncidentDetail({ incident, onLifecycleChange, actionBusy }) {
                 ))}
               </ol>
             )}
+          </div>
+
+          <div className="detail-block">
+            <h3>Timeline</h3>
+            <div className="timeline-list">
+              {timeline.length === 0 ? (
+                <p>No timeline entries yet.</p>
+              ) : (
+                timeline.map((entry) => (
+                  <div className="timeline-row" key={entry.id}>
+                    <div className="timeline-marker" />
+                    <div>
+                      <strong>{entry.timeline_type}</strong>
+                      <p>{entry.message}</p>
+                      <time>{formatDate(entry.created_at)}</time>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="detail-block">
