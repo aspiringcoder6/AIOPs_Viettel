@@ -22,4 +22,32 @@ export async function ensureSchema() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS service_dependencies (
+      id SERIAL PRIMARY KEY,
+      service_name VARCHAR(100) NOT NULL,
+      related_service VARCHAR(100) NOT NULL,
+      relation_type VARCHAR(50) NOT NULL DEFAULT 'depends_on',
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(service_name, related_service, relation_type)
+    )
+  `);
+
+  await pool.query(`
+    INSERT INTO service_dependencies(service_name, related_service, relation_type)
+    VALUES
+      ('node-api', 'postgres', 'depends_on'),
+      ('node-api', 'redis', 'depends_on'),
+      ('node-api', 'nginx', 'proxied_by'),
+      ('nginx', 'node-api', 'routes_to'),
+      ('collector', 'elasticsearch', 'writes_to'),
+      ('context-builder', 'elasticsearch', 'reads_from'),
+      ('context-builder', 'postgres', 'writes_to'),
+      ('detector', 'prometheus', 'reads_from'),
+      ('detector', 'postgres', 'writes_to'),
+      ('agent', 'postgres', 'reads_from'),
+      ('alert-manager', 'postgres', 'reads_from')
+    ON CONFLICT DO NOTHING
+  `);
 }

@@ -25,12 +25,14 @@ function buildPromptContext(bundle) {
       message: log.message,
       timestamp: log["@timestamp"],
       service: log.service,
+      relevance_score: log.relevance_score,
     }));
 
-  // Flatten metrics to just name + value
   const metricSummary = metrics.map(m => ({
     name: m.name,
-    value: m.value,
+    values: Array.isArray(m.values)
+      ? m.values.slice(0, 10)
+      : [],
   }));
 
   return {
@@ -66,9 +68,7 @@ export async function getPendingBundles(limit = 3) {
         ) filtered_logs
       ) AS logs,
       (
-        SELECT COALESCE(json_agg(
-          json_build_object('name', m->>'name', 'value', m->>'value')
-        ), '[]'::json)
+        SELECT COALESCE(json_agg(m), '[]'::json)
         FROM jsonb_array_elements(cb.metrics::jsonb) m
       ) AS metrics,
       json_build_object(

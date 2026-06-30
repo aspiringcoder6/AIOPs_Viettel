@@ -3,6 +3,7 @@ import { getLogsAroundEvent } from "./logs.js";
 import { queryMetric } from "./prometheus.js";
 
 const WINDOW_MINUTES = Number(process.env.CONTEXT_WINDOW_MINUTES || 5);
+const MAX_CONTEXT_LOGS = Number(process.env.CONTEXT_MAX_LOGS || 80);
 
 function sanitizeText(value) {
   return String(value ?? "")
@@ -56,6 +57,101 @@ export async function getPendingEvents(limit = 5) {
 
   return result.rows;
 }
+
+async function getRelatedServices(serviceName) {
+  const result = await pool.query(
+    `
+    SELECT related_service, relation_type
+    FROM service_dependencies
+    WHERE service_name = $1
+    ORDER BY relation_type, related_service
+    `,
+    [serviceName]
+  );
+
+  return result.rows;
+}
+
+function serviceNamesFromDependencies(dependencies) {
+  return dependencies.map((dependency) => dependency.related_service);
+}
+
+function getLogScore(log, event, relatedServices) {
+  let score = 0;
+  const message = String(log.message || "").toLowerCase();
+  const eventType = String(event.event_type || "").toLowerCase();
+
+  if (log.service === event.service_name) score += 50;
+  if (relatedServices.includes(log.service)) score += 25;
+  if (log.level === "ERROR") score += 40;
+  if (log.level === "WARN") score += 20;
+  if (message.includes("error")) score += 10;
+  if (message.includes("failed")) score += 10;
+  if (message.includes("exception")) score += 10;
+  if (eventType && message.includes(eventType.replace("_", " ").toLowerCase())) score += 10;
+
+  return score;
+}
+
+function rankLogs(logs, event, relatedServices) {
+  return logs
+    .map((log) => ({
+      ...log,
+      relevance_score: getLogScore(log, event, relatedServices),
+    }))
+    .sort((a, b) => {
+      if (b.relevance_score !== a.relevance_score) {
+        return b.relevance_score - a.relevance_score;
+      }
+
+      return new Date(a["@timestamp"]) - new Date(b["@timestamp"]);
+    })
+    .slice(0, MAX_CONTEXT_LOGS)
+    .sort((a, b) => new Date(a["@timestamp"]) - new Date(b["@timestamp"]));
+}
+
+function metricService(metric) {
+  return (
+    metric.metric?.container_label_com_docker_compose_service ||
+    metric.metric?.job ||
+    metric.metric?.container ||
+    "global"
+  );
+}
+
+function compactMetric(metric) {
+  return {
+    service: metricService(metric),
+    value: Number(metric.value?.[1]),
+    labels: metric.metric || {},
+  };
+}
+
+function enrichMetrics(metrics, event, relatedServices) {
+  const relevantServices = new Set([
+    event.service_name,
+    ...relatedServices,
+    "global",
+  ]);
+
+  return metrics.map((metric) => {
+    const values = (metric.results || [])
+      .map(compactMetric)
+      .filter((value) => {
+        return (
+          relevantServices.has(value.service) ||
+          Object.keys(value.labels).length === 0
+        );
+      });
+
+    return {
+      name: metric.name,
+      query: metric.query,
+      values,
+    };
+  });
+}
+
 //Get metrics at the moment calling this function
 async function getMetricsSnapshot(serviceName) {
   const metrics = [
@@ -70,9 +166,25 @@ async function getMetricsSnapshot(serviceName) {
   return Promise.all(metrics);
 }
 
-function summarizeBundle(event, logs, metrics) {
+function summarizeBundle(event, logs, metrics, dependencies) {
   const errorLogs = logs.filter(l => l.level === "ERROR");
   const warnLogs  = logs.filter(l => l.level === "WARN");
+  const relatedServices = dependencies
+    .map((dependency) => `${dependency.related_service} (${dependency.relation_type})`)
+    .join(", ");
+  const metricHighlights = metrics
+    .map((metric) => {
+      const topValue = metric.values
+        .filter((value) => Number.isFinite(value.value))
+        .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))[0];
+
+      if (!topValue) return null;
+
+      return `${metric.name}=${topValue.value} on ${topValue.service}`;
+    })
+    .filter(Boolean)
+    .slice(0, 5)
+    .join("; ");
 
   const topErrors = errorLogs
     .slice(0, 5)
@@ -82,7 +194,9 @@ function summarizeBundle(event, logs, metrics) {
   return (
     `${event.event_type} on ${event.service_name}: ` +
     `${logs.length} logs (${errorLogs.length} errors, ${warnLogs.length} warnings), ` +
-    `${metrics.length} metric snapshots. ` +
+    `${metrics.length} metric groups. ` +
+    (relatedServices ? `Related services: ${relatedServices}. ` : "No related services mapped. ") +
+    (metricHighlights ? `Metric highlights: ${metricHighlights}. ` : "") +
     (topErrors ? `Top errors: ${topErrors}` : "No errors logged.")
   );
 }
@@ -91,21 +205,30 @@ export async function buildContextBundle(event) {
   const startTime = new Date(detectedAt.getTime() - WINDOW_MINUTES * 60 * 1000);
   const endTime = new Date(detectedAt.getTime() + WINDOW_MINUTES * 60 * 1000);
 
-  const [rawLogs, metrics] = await Promise.all([
-    getLogsAroundEvent(event, startTime, endTime),
+  const dependencies = await getRelatedServices(event.service_name);
+  const relatedServices = serviceNamesFromDependencies(dependencies);
+
+  const [rawLogs, rawMetrics] = await Promise.all([
+    getLogsAroundEvent(event, startTime, endTime, relatedServices),
     getMetricsSnapshot(event.service_name),
   ]);
 
-  const logs = sanitizeValue(rawLogs);
+  const logs = sanitizeValue(
+    rankLogs(rawLogs, event, relatedServices)
+  );
+  const metrics = sanitizeValue(
+    enrichMetrics(rawMetrics, event, relatedServices)
+  );
 
   const affectedServices = [
     ...new Set([
       event.service_name,
+      ...relatedServices,
       ...logs.map((log) => log.service).filter(Boolean),
     ]),
   ];
 
-  const summary = summarizeBundle(event, logs, metrics);
+  const summary = summarizeBundle(event, logs, metrics, dependencies);
 
   const result = await pool.query(
     `

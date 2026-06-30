@@ -20,6 +20,8 @@ Responsibilities:
 - Read docker container logs
 - Normalize log format
 - Store logs using ELK stack, store state + incidents alert using Postgres
+- Pull logs from the event service as well as related services through the service_dependencies table
+- Prioritize ERROR/WARN logs from the other dependant service. 
 Input: 
 - Docker API stream
 Output:
@@ -29,7 +31,7 @@ Responsibilities:
 - Query Prometheus metrics
 - Collect CPU, memory, latency, error rate
 Output:
-- Metrics snapshot
+- Metrics snapshot that are compacted into service/value groups instead of full Prometheus responses
 Anomaly detector
 Responsibilities:
 - Detect latency spikes
@@ -45,10 +47,12 @@ type: "LATENCY_SPIKE",
 service: "node-api"
 }
 Context builder
+Context builder has service dependency awereness, using the service dependencies table, that for now, the relations inside are created and set by the designer of the system. So if someone use this, they have to define all different relationships between parts of their system for it to work.
 Responsibilities:
 - Gather recent logs
 - Gather related metrics
 - Gather logs from dependent services
+- Rank the logs by relevance and capped with CONTEXT_MAX_LOGS
 Problem: If we put every log into the context builder, it will build up token really quick and this is not good since it will be a waste
 Fix: Use the summary field to my advantage and build a slim context window
 Output:
