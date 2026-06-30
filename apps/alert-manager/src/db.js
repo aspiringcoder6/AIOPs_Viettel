@@ -30,4 +30,18 @@ export async function ensureSchema() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS incident_timeline (
+      id SERIAL PRIMARY KEY,
+      incident_id INTEGER REFERENCES active_incidents(id),
+      event_id INTEGER REFERENCES events(id),
+      analysis_id INTEGER REFERENCES ai_analyses(id),
+      alert_id INTEGER REFERENCES alerts(id),
+      timeline_type VARCHAR(50) NOT NULL,
+      message TEXT NOT NULL,
+      metadata JSONB,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
 }

@@ -142,14 +142,98 @@ async function createAlert(analysis, incident, message) {
   return result.rows[0];
 }
 
+async function recordTimeline({
+  incidentId,
+  eventId,
+  analysisId,
+  alertId = null,
+  type,
+  message,
+  metadata = {},
+}) {
+  await pool.query(
+    `
+    INSERT INTO incident_timeline(
+      incident_id,
+      event_id,
+      analysis_id,
+      alert_id,
+      timeline_type,
+      message,
+      metadata
+    )
+    VALUES($1,$2,$3,$4,$5,$6,$7)
+    `,
+    [
+      incidentId,
+      eventId,
+      analysisId,
+      alertId,
+      type,
+      message,
+      JSON.stringify(metadata),
+    ]
+  );
+}
+
+async function attachExistingTimelineToIncident(incident, analysis) {
+  await pool.query(
+    `
+    UPDATE incident_timeline
+    SET incident_id = $1
+    WHERE incident_id IS NULL
+      AND (
+        event_id = $2
+        OR analysis_id = $3
+      )
+    `,
+    [
+      incident.id,
+      analysis.event_id,
+      analysis.id,
+    ]
+  );
+}
+
 export async function processAnalysis(analysis) {
   const existingIncident = await findOpenIncident(analysis);
   const incident = existingIncident
     ? await updateIncident(existingIncident, analysis)
     : await createIncident(analysis);
 
+  await attachExistingTimelineToIncident(incident, analysis);
+
+  await recordTimeline({
+    incidentId: incident.id,
+    eventId: analysis.event_id,
+    analysisId: analysis.id,
+    type: existingIncident ? "INCIDENT_UPDATED" : "INCIDENT_OPENED",
+    message: existingIncident
+      ? `Updated incident ${incident.id} from analysis ${analysis.id}`
+      : `Opened incident ${incident.id}`,
+    metadata: {
+      severity: incident.severity,
+      event_type: incident.event_type,
+      service_name: incident.service_name,
+    },
+  });
+
   const message = buildAlertMessage(analysis, incident);
   const alert = await createAlert(analysis, incident, message);
+
+  await recordTimeline({
+    incidentId: incident.id,
+    eventId: analysis.event_id,
+    analysisId: analysis.id,
+    alertId: alert.id,
+    type: "ALERT_SENT",
+    message: `Sent console alert ${alert.id}`,
+    metadata: {
+      severity: alert.severity,
+      channel: alert.channel,
+      status: alert.status,
+    },
+  });
 
   console.log(message);
 

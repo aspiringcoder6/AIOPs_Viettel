@@ -25,12 +25,14 @@ function buildPromptContext(bundle) {
       message: log.message,
       timestamp: log["@timestamp"],
       service: log.service,
+      relevance_score: log.relevance_score,
     }));
-
-  // Flatten metrics to just name + value
+  //Summarize Metrics into an object
   const metricSummary = metrics.map(m => ({
     name: m.name,
-    value: m.value,
+    values: Array.isArray(m.values)
+      ? m.values.slice(0, 10)
+      : [],
   }));
 
   return {
@@ -66,9 +68,7 @@ export async function getPendingBundles(limit = 3) {
         ) filtered_logs
       ) AS logs,
       (
-        SELECT COALESCE(json_agg(
-          json_build_object('name', m->>'name', 'value', m->>'value')
-        ), '[]'::json)
+        SELECT COALESCE(json_agg(m), '[]'::json)
         FROM jsonb_array_elements(cb.metrics::jsonb) m
       ) AS metrics,
       json_build_object(
@@ -124,7 +124,33 @@ export async function saveAnalysis(bundle, analysis) {
     ]
   );
 
-  return result.rows[0];
+  const saved = result.rows[0];
+  //Add to incident timeline to know the life cycle of the incident
+  await pool.query(
+    `
+    INSERT INTO incident_timeline(
+      event_id,
+      analysis_id,
+      timeline_type,
+      message,
+      metadata
+    )
+    VALUES($1,$2,$3,$4,$5)
+    `,
+    [
+      bundle.event_id,
+      saved.id,
+      "AI_ANALYZED",
+      `AI analysis ${saved.id} completed with severity ${saved.severity}`,
+      JSON.stringify({
+        provider: saved.provider,
+        model: saved.model,
+        confidence: saved.confidence,
+      }),
+    ]
+  );
+
+  return saved;
 }
 
 export async function analyzePendingBundle(bundle) {

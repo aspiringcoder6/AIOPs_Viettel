@@ -52,6 +52,7 @@ async function run() {
 
   for (const bundle of bundles) {
     try {
+      console.log(bundle);
       const analysis = await analyzePendingBundle(bundle);
       console.log(
         `[AGENT] Analyzed bundle ${bundle.id} as ${analysis.severity}`

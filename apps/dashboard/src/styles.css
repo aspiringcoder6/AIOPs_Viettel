@@ -33,11 +33,10 @@ main {
 }
 
 .eyebrow {
-  color: #667085;
-  font-size: 12px;
+  color: #e97611;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 h1,
@@ -114,6 +113,14 @@ h3 {
   border-radius: 8px;
 }
 
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 100vh;
+  overflow: hidden;
+}
+
 .stat {
   align-items: center;
   display: flex;
@@ -153,23 +160,22 @@ h3 {
   max-width: 1480px;
 }
 
-.panel {
-  min-height: 560px;
-  overflow: hidden;
-}
-
 .panel-heading {
   align-items: center;
+  background: #ffffff;
   border-bottom: 1px solid #e6ebf0;
   display: flex;
   justify-content: space-between;
   min-height: 54px;
   padding: 0 16px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
-.incident-list,
-.alert-feed {
-  max-height: 650px;
+.panel-body {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -264,17 +270,36 @@ h3 {
 }
 
 .detail-panel {
-  padding: 18px;
+  padding: 0;
+}
+
+.detail-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
 }
 
 .detail-header {
   align-items: flex-start;
+  background: #ffffff;
+  border-bottom: 1px solid #e6ebf0;
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 0;
+  padding: 18px 18px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
-
+.incident-tag{
+    color: #6b6b6b;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
 .detail-actions {
   align-items: center;
   display: flex;
@@ -312,6 +337,10 @@ h3 {
 .detail-header h2 {
   font-size: 22px;
   margin-top: 4px;
+}
+
+.detail-content {
+  padding: 18px;
 }
 
 .detail-grid {
@@ -381,6 +410,39 @@ ol {
   align-items: center;
   grid-template-columns: 42px minmax(0, 1fr) auto;
   padding: 10px 0;
+}
+
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.timeline-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 14px minmax(0, 1fr);
+}
+
+.timeline-marker {
+  background: #285a7a;
+  border-radius: 999px;
+  height: 9px;
+  margin-top: 5px;
+  width: 9px;
+}
+
+.timeline-row strong {
+  font-size: 13px;
+}
+
+.timeline-row p {
+  margin: 3px 0;
+}
+
+.timeline-row time {
+  color: #667085;
+  font-size: 12px;
 }
 
 .empty,

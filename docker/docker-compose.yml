@@ -145,6 +145,9 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
       PROMETHEUS_URL: http://prometheus:9090
       ELASTIC_URL: http://elasticsearch:9200
+      CONTEXT_WINDOW_MINUTES: ${CONTEXT_WINDOW_MINUTES:-5}
+      CONTEXT_LOG_SEARCH_SIZE: ${CONTEXT_LOG_SEARCH_SIZE:-250}
+      CONTEXT_MAX_LOGS: ${CONTEXT_MAX_LOGS:-80}
     depends_on:
       - postgres
       - prometheus
