@@ -8,7 +8,7 @@ export function AlertFeed({ alerts }) {
         <h2>Recent Alerts</h2>
         <Bell size={17} />
       </div>
-      <div className="alert-feed">
+      <div className="panel-body alert-feed">
         {alerts.length === 0 ? (
           <div className="empty">No alerts found.</div>
         ) : (

@@ -7,7 +7,7 @@ export function IncidentList({ incidents, selectedId, onSelect }) {
         <h2>Incidents</h2>
         <span>{incidents.length}</span>
       </div>
-      <div className="incident-list">
+      <div className="panel-body incident-list">
         {incidents.length === 0 ? (
           <div className="empty">No incidents match the current filters.</div>
         ) : (
