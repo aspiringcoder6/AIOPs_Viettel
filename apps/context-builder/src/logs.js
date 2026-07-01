@@ -1,21 +1,18 @@
 import { Client } from "@elastic/elasticsearch";
+import {
+  buildFallbackLogQuery,
+  buildLogQuery,
+} from "./logQuery.js";
 
 const es = new Client({
   node: process.env.ELASTIC_URL || "http://localhost:9200",
 });
 
-export async function getLogsAroundEvent(event, startTime, endTime, relatedServices = []) {
-  const services = [
-    ...new Set([
-      event.service_name,
-      ...relatedServices,
-    ].filter(Boolean)),
-  ];
-
+async function searchLogs(query, size) {
   const response = await es.search({
     index: "logs-*",
     ignore_unavailable: true,
-    size: Number(process.env.CONTEXT_LOG_SEARCH_SIZE || 250),
+    size,
     sort: [
       {
         "@timestamp": {
@@ -23,34 +20,34 @@ export async function getLogsAroundEvent(event, startTime, endTime, relatedServi
         },
       },
     ],
-    query: {
-      bool: {
-        filter: [
-          {
-            range: {
-              "@timestamp": {
-                gte: startTime.toISOString(),
-                lte: endTime.toISOString(),
-              },
-            },
-          },
-        ],
-        should: [
-          {
-            terms: {
-              service: services,
-            },
-          },
-          {
-            terms: {
-              level: ["ERROR", "WARN"],
-            },
-          },
-        ],
-        minimum_should_match: 1,
-      },
-    },
+    query,
   });
 
   return response.hits.hits.map((hit) => hit._source);
+}
+
+//Get logs around a certain event of interest
+export async function getLogsAroundEvent(event, startTime, endTime, relatedServices = []) {
+  const size = Number(process.env.CONTEXT_LOG_SEARCH_SIZE || 250);
+  const logs = await searchLogs(
+    buildLogQuery(event, startTime, endTime, relatedServices),
+    size
+  );
+
+  if (logs.length > 0) {
+    return logs;
+  }
+
+  const fallbackLogs = await searchLogs(
+    buildFallbackLogQuery(startTime, endTime),
+    Math.min(size, 50)
+  );
+
+  if (fallbackLogs.length > 0) {
+    console.log(
+      `[CONTEXT] Strict log search returned 0 logs for event ${event.id}; using ${fallbackLogs.length} fallback error/scenario logs`
+    );
+  }
+
+  return fallbackLogs;
 }

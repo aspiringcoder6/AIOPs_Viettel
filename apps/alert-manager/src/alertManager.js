@@ -1,4 +1,5 @@
 import { pool } from "./db.js";
+import { findMatchingIncident } from "./incidentGrouping.js";
 
 export async function getPendingAnalyses(limit = 5) {
   const result = await pool.query(
@@ -34,7 +35,6 @@ async function findOpenIncident(analysis) {
       AND service_name = $2
       AND status = 'OPEN'
     ORDER BY opened_at DESC
-    LIMIT 1
     `,
     [
       analysis.event_type,
@@ -42,7 +42,7 @@ async function findOpenIncident(analysis) {
     ]
   );
 
-  return result.rows[0] || null;
+  return findMatchingIncident(analysis, result.rows);
 }
 
 async function createIncident(analysis) {

@@ -215,6 +215,7 @@ export function formatScenarioLog(scenario, step, requestId) {
     `[SCENARIO:${scenario.name}]`,
     `request_id=${requestId}`,
     `source_service=${step.service}`,
+    `level=${step.level}`,
     `event_type=${scenario.type}`,
     step.message,
   ].join(" ");

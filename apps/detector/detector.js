@@ -1,4 +1,5 @@
 import {pool} from './db.js'
+import { shouldBypassCooldown } from './eventPolicy.js';
 
 const EVENT_COOLDOWN_SECONDS =
   //This change the cooldown to prevent creating a duplicate event in the same service if the event type was recorded recently
@@ -85,10 +86,13 @@ export async function createEvent(
       );
     }
 
-    const duplicate = await findRecentDuplicate(
-      eventType,
-      service
-    );
+    const bypassCooldown = shouldBypassCooldown(eventType);
+    const duplicate = bypassCooldown
+      ? null
+      : await findRecentDuplicate(
+        eventType,
+        service
+      );
 
     if (duplicate) {
       await recordSuppressedEvent(
@@ -104,6 +108,12 @@ export async function createEvent(
         `[DETECTOR] Skipped duplicate ${eventType} on ${service}; recent event ${duplicate.id} is inside ${EVENT_COOLDOWN_SECONDS}s cooldown`
       );
       return null;
+    }
+
+    if (bypassCooldown) {
+      console.log(
+        `[DETECTOR] ${eventType} bypasses duplicate cooldown so AI can inspect distinct error logs of the event`
+      );
     }
 
     await pool.query(

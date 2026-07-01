@@ -3,6 +3,10 @@ import {
   es,
   waitForElasticsearch,
 } from "./elastic.js";
+import {
+  cleanDockerChunk,
+  parseLog,
+} from "./logParser.js";
 
 const allowedServices = [
   "node-api",
@@ -10,51 +14,6 @@ const allowedServices = [
   "redis",
   "nginx"
 ];
-
-function sanitizeText(value) {
-  return String(value)
-    .replace(/\u0000/g, "")
-    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
-    .trim();
-}
-
-//Strip the multiplexed binary format
-function cleanDockerChunk(chunk) {
-  if (!chunk || chunk.length <= 8) {
-    return "";
-  }
-
-  const payload = chunk.slice(8).toString("utf8");
-
-  return sanitizeText(payload);
-}
-
-function parseLog(service, message) {
-  let level = "INFO";
-
-  const lower = message.toLowerCase();
-
-  if (
-    lower.includes("error") ||
-    lower.includes("exception") ||
-    lower.includes("failed")
-  ) {
-    level = "ERROR";
-  }
-  else if (
-    lower.includes("warn") ||
-    lower.includes("warning")
-  ) {
-    level = "WARN";
-  }
-  // Add timestamp field cus elastic require it
-  return {
-    "@timestamp": new Date().toISOString(),
-    service,
-    level,
-    message: sanitizeText(message)
-  };
-}
 
 async function watchContainer(info) {
   const service =
@@ -90,23 +49,30 @@ async function watchContainer(info) {
           return;
         }
 
-        const parsed =
-          parseLog(
-            service,
-            message
+        const lines = message
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+
+        for (const line of lines) {
+          const parsed =
+            parseLog(
+              service,
+              line
+            );
+
+          console.log(
+            `[${service}] ${parsed.level}: ${line}`
           );
 
-        console.log(
-          `[${service}] ${parsed.level}: ${message}`
-        );
-
-        await es.index({
-          index: `logs-${new Date()
-            .toISOString()
-            .slice(0, 10)}`,
-          document: parsed,
-          refresh: false
-        });
+          await es.index({
+            index: `logs-${new Date()
+              .toISOString()
+              .slice(0, 10)}`,
+            document: parsed,
+            refresh: false
+          });
+        }
       }
       catch (err) {
         console.error(
