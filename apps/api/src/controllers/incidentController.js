@@ -1,3 +1,5 @@
+import { listScenarios, runScenario } from "../services/incidentScenarios.js";
+
 //These are controllers function to simulate incidents
 //LATENCY_SPIKE
 export const getSlowRequest=async(req,res)=>{
@@ -45,7 +47,7 @@ export const getCPUSpikeRequest=async(req,res)=>{
     });
     }
     catch(err){
-        res.status(500).json({ status: 'error', message: error.message });
+        res.status(500).json({ status: 'error', message: err.message });
     }
 }
 //MEMORY_SPIKE
@@ -57,5 +59,35 @@ export const getMemorySpike=async(req,res)=>{
 
     res.json({
         memoryChunks: memoryLeak.length
+    });
+}
+//Get the list of manufactured incidents
+export const getIncidentScenarios=(req,res)=>{
+    res.json({
+        scenarios: listScenarios()
+    });
+}
+// Run a selected incident
+export const runIncidentScenario=async(req,res)=>{
+    const result = await runScenario(req.params.scenario);
+
+    if (!result) {
+        return res.status(404).json({
+            status: "error",
+            message: `I haven't created this incident yet: ${req.params.scenario}`,
+            availableScenarios: listScenarios().map((scenario) => scenario.name)
+        });
+    }
+
+    const { scenario, requestId } = result;
+
+    res.status(scenario.httpStatus).json({
+        status: scenario.httpStatus >= 500 ? "error" : "ok",
+        scenario: scenario.name,
+        type: scenario.type,
+        requestId,
+        affectedServices: scenario.affectedServices,
+        signals: scenario.signals,
+        expectedRootCause: scenario.expectedRootCause
     });
 }
