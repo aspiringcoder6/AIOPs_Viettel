@@ -31,21 +31,38 @@ function compactJson(value, maxLength = 12000) {
 }
 
 export function buildPrompt(bundle) {
+  const logs =
+    bundle.log_groups ||
+    bundle.significant_logs ||
+    bundle.logs ||
+    [];
+
   return `
-You are an AIOps incident analysis agent.
+You are an AI Operations incident analysis agent.
 
 Analyze this detected event and context bundle. Return only valid JSON with this exact shape:
 {
-  "severity": "P1|P2|P3",
-  "root_cause": "short explanation",
-  "confidence": 0.0,
-  "recommendations": ["step 1", "step 2"]
+  "incidents": [
+    {
+      "severity": "P1|P2|P3",
+      "event_type": "short incident type, preferably from the evidence logs",
+      "service_name": "primary affected service",
+      "root_cause": "short explanation",
+      "confidence": 0.0,
+      "recommendations": ["step 1", "step 2"],
+      "evidence": ["short log clue 1", "short log clue 2"]
+    }
+  ]
 }
 
 Rules:
 - Use P1 for outage, severe error spike, or customer-impacting failure.
 - Use P2 for degraded performance, high resource usage, or partial impact.
 - Use P3 for weak signal, warning, or informational anomaly.
+- If logs contain multiple distinct scenarios, request_ids, event_types, or root causes, return multiple incidents.
+- If several logs describe the same request_id/scenario/root cause, merge them into one incident.
+- Prefer concrete log evidence over generic metric names.
+- Keep evidence short and cite clues such as request_id, scenario_name, source_service, or error text.
 - Keep recommendations concrete and operational.
 
 Event:
@@ -61,7 +78,7 @@ Metrics:
 ${compactJson(bundle.metrics)}
 
 Logs:
-${compactJson(bundle.logs)}
+${compactJson(logs)}
 `.trim();
 }
 
@@ -97,7 +114,26 @@ export function normalizeAnalysis(parsed) {
       recommendations.length > 0
         ? recommendations
         : ["Review related service logs and metrics for the event window."],
+    event_type: parsed.event_type ? String(parsed.event_type) : undefined,
+    service_name: parsed.service_name ? String(parsed.service_name) : undefined,
+    evidence: Array.isArray(parsed.evidence)
+      ? parsed.evidence.map(String).filter(Boolean)
+      : [],
   };
+}
+
+export function normalizeAnalyses(parsed) {
+  const incidentList = Array.isArray(parsed.incidents)
+    ? parsed.incidents
+    : [parsed];
+
+  const analyses = incidentList
+    .map(normalizeAnalysis)
+    .filter((analysis) => analysis.root_cause !== "Root cause unknown");
+
+  return analyses.length > 0
+    ? analyses
+    : [normalizeAnalysis({})];
 }
 
 export async function analyzeWithGemini(bundle) {
@@ -140,10 +176,10 @@ export async function analyzeWithGemini(bundle) {
 
   const parsed = extractJson(text);
 
-  return {
-    ...normalizeAnalysis(parsed),
+  return normalizeAnalyses(parsed).map((analysis) => ({
+    ...analysis,
     provider: "gemini",
     model: GEMINI_MODEL,
     raw_response: text,
-  };
+  }));
 }

@@ -12,12 +12,14 @@ export async function ensureSchema() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ai_analyses (
       id SERIAL PRIMARY KEY,
-      context_bundle_id INTEGER NOT NULL UNIQUE REFERENCES context_bundles(id),
+      context_bundle_id INTEGER NOT NULL REFERENCES context_bundles(id),
       event_id INTEGER NOT NULL REFERENCES events(id),
       severity VARCHAR(10) NOT NULL,
       root_cause TEXT NOT NULL,
       confidence DOUBLE PRECISION,
       recommendations JSONB NOT NULL,
+      event_type VARCHAR(100),
+      service_name VARCHAR(100),
       provider VARCHAR(50),
       model VARCHAR(100),
       raw_response TEXT,
@@ -40,6 +42,13 @@ export async function ensureSchema() {
 
   await pool.query(`
     ALTER TABLE ai_analyses
+    DROP CONSTRAINT IF EXISTS ai_analyses_context_bundle_id_key
+  `);
+
+  await pool.query(`
+    ALTER TABLE ai_analyses
+    ADD COLUMN IF NOT EXISTS event_type VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS service_name VARCHAR(100),
     ADD COLUMN IF NOT EXISTS provider VARCHAR(50),
     ADD COLUMN IF NOT EXISTS model VARCHAR(100)
   `);

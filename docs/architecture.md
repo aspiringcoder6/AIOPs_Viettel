@@ -53,6 +53,7 @@ Responsibilities:
 - Gather related metrics
 - Gather logs from dependent services
 - Rank the logs by relevance and capped with CONTEXT_MAX_LOGS
+- Reduce repeating logs by grouping them and add a count for AI Agent
 Problem: If we put every log into the context builder, it will build up token really quick and this is not good since it will be a waste
 Fix: Use the summary field to my advantage and build a slim context window
 Problem 2: If we put a limit on logs, we may miss out on important logs when sending to AI Agent
@@ -72,16 +73,37 @@ Responsibilities:
 - Determine severity
 - Suggest root causes
 - Recommend remediation
+- Read the logs to find multiple incidents at once
 Input: 
 - Context bundle
 Output:
-Severity, root cause, and recommendations
+- Severity, root cause, and recommendations
+- Return multiple incidents candidates from the error logs and split them if the agent see fit, add it to the database waiting for resolve
+- Save each incident in a ai analyses table
+Example output:
+{
+  "incidents": [
+    {
+      "severity": "P1|P2|P3",
+      "event_type": "...",
+      "service_name": "...",
+      "root_cause": "...",
+      "confidence": 0.0,
+      "recommendations": [],
+      "evidence": []
+    }
+  ]
+}
 Alert manager
 Responsibilities:
 - Group related incidents
 - Avoid duplicated alerts
 - Display alerts to user
 - Send mail to user if service is down due to errors (IF ENOUGH TIME)
+INPUT: 
+- The incidents and the ai_analyses received from AI agent and detector
+OUTPUT: 
+- Alerts in the dashboard and cli
 Dashboard Visualization:
 Techstack:
 - Frontend: ReactJS

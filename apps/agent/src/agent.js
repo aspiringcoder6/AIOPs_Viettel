@@ -1,52 +1,6 @@
 import { pool } from "./db.js";
 import { analyzeBundle } from "./providers.js";
-
-//This is to reduce the context bundle to reasonable size
-function buildPromptContext(bundle) {
-  const parseLax = (val) => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val;
-    if (typeof val === "string") {
-      try { return JSON.parse(val); } catch { return []; }
-    }
-    return [];
-  };
-
-  const logs    = parseLax(bundle.logs);
-  const metrics = parseLax(bundle.metrics);
-
-  // Keep only error/warn logs, capped at a safe limit
-  const MAX_LOGS = 30;
-  const significantLogs = logs
-    .filter(log => ["ERROR", "WARN"].includes(log.level))
-    .slice(0, MAX_LOGS)
-    .map(log => ({
-      level: log.level,
-      message: log.message,
-      timestamp: log["@timestamp"],
-      service: log.service,
-      relevance_score: log.relevance_score,
-    }));
-  //Summarize Metrics into an object
-  const metricSummary = metrics.map(m => ({
-    name: m.name,
-    values: Array.isArray(m.values)
-      ? m.values.slice(0, 10)
-      : [],
-  }));
-
-  return {
-    event: bundle.event,
-    summary: bundle.summary,
-    time_window: {
-      start: bundle.start_time,
-      end: bundle.end_time,
-    },
-    affected_services: bundle.affected_services,
-    significant_logs: significantLogs,
-    metrics: metricSummary,
-  };
-}
+import { buildPromptContext } from "./promptContext.js";
 export async function getPendingBundles(limit = 3) {
   const result = await pool.query(
       `
@@ -95,6 +49,10 @@ export async function getPendingBundles(limit = 3) {
 }
 
 export async function saveAnalysis(bundle, analysis) {
+  //The type of event and the service it belongs too
+  const eventType = analysis.event_type || bundle.event?.event_type;
+  const serviceName = analysis.service_name || bundle.event?.service_name;
+
   const result = await pool.query(
     `
     INSERT INTO ai_analyses(
@@ -104,11 +62,13 @@ export async function saveAnalysis(bundle, analysis) {
       root_cause,
       confidence,
       recommendations,
+      event_type,
+      service_name,
       provider,
       model,
       raw_response
     )
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
     RETURNING *
     `,
     [
@@ -118,6 +78,8 @@ export async function saveAnalysis(bundle, analysis) {
       analysis.root_cause,
       analysis.confidence,
       JSON.stringify(analysis.recommendations),
+      eventType,
+      serviceName,
       analysis.provider,
       analysis.model,
       analysis.raw_response,
@@ -146,6 +108,9 @@ export async function saveAnalysis(bundle, analysis) {
         provider: saved.provider,
         model: saved.model,
         confidence: saved.confidence,
+        event_type: eventType,
+        service_name: serviceName,
+        evidence: analysis.evidence || [],
       }),
     ]
   );
@@ -154,7 +119,15 @@ export async function saveAnalysis(bundle, analysis) {
 }
 
 export async function analyzePendingBundle(bundle) {
+  //Can accept one analysis or multiple analysis
   const promptContext = buildPromptContext(bundle);
-  const analysis = await analyzeBundle(promptContext); // For  slim context
-  return saveAnalysis(bundle, analysis);
+  const analyses = await analyzeBundle(promptContext);
+  const analysisList = Array.isArray(analyses) ? analyses : [analyses];
+  const savedAnalyses = [];
+
+  for (const analysis of analysisList) {
+    savedAnalyses.push(await saveAnalysis(bundle, analysis));
+  }
+
+  return savedAnalyses;
 }

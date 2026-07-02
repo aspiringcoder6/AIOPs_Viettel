@@ -6,8 +6,8 @@ export async function getPendingAnalyses(limit = 5) {
     `
     SELECT
       aa.*,
-      e.event_type,
-      e.service_name,
+      COALESCE(aa.event_type, e.event_type) AS event_type,
+      COALESCE(aa.service_name, e.service_name) AS service_name,
       e.description AS event_description,
       e.metric_value,
       e.detected_at

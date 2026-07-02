@@ -1,7 +1,7 @@
 import {
   buildPrompt,
   extractJson,
-  normalizeAnalysis,
+  normalizeAnalyses,
 } from "./gemini.js";
 
 const GROQ_API_URL =
@@ -57,10 +57,10 @@ export async function analyzeWithGroq(bundle) {
 
   const parsed = extractJson(text);
 
-  return {
-    ...normalizeAnalysis(parsed),
+  return normalizeAnalyses(parsed).map((analysis) => ({
+    ...analysis,
     provider: "groq",
     model: GROQ_MODEL,
     raw_response: text,
-  };
+  }));
 }

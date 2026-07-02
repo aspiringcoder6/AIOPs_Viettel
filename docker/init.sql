@@ -105,7 +105,7 @@ ON CONFLICT DO NOTHING;
 CREATE TABLE ai_analyses (
     id SERIAL PRIMARY KEY,
 
-    context_bundle_id INTEGER NOT NULL UNIQUE REFERENCES context_bundles(id),
+    context_bundle_id INTEGER NOT NULL REFERENCES context_bundles(id),
 
     event_id INTEGER NOT NULL REFERENCES events(id),
 
@@ -116,6 +116,10 @@ CREATE TABLE ai_analyses (
     confidence DOUBLE PRECISION,
 
     recommendations JSONB NOT NULL,
+
+    event_type VARCHAR(100),
+
+    service_name VARCHAR(100),
 
     provider VARCHAR(50),
 
